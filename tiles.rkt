@@ -99,24 +99,23 @@
   (-> handlist? handlist?)
   (if (empty? h)
       h
-  (let* ([len (length h)]
-         [wait (last h)]
-         [sorted (tile-sort (drop-right h 1))])
-    (append sorted (list wait)))))
+      (let* ([len (length h)]
+             [wait (last h)]
+             [sorted (tile-sort (drop-right h 1))])
+        (append sorted (list wait)))))
 
 (define (tile-sorted-keep-last? h)
   (equal? h (tile-sort-keep-last h)))
 
-(define/contract (tile-next tile)
+(define/contract (tile-next t)
   (-> tile? tile?)
-  (let* ([number (tile-number tile)]
-         [suit (tile-suit tile)]
-         [next-number (cond [(dragon? tile) (+ 5 (modulo (- number 4)
-                                                         3))]
-                            [(wind? tile) (+ 1 (modulo number 4))]
+  (let* ([number (tile-number t)]
+         [suit (tile-suit t)]
+         [next-number (cond [(dragon? t) (+ 5 (modulo (- number 4)
+                                                      3))]
+                            [(wind? t) (+ 1 (modulo number 4))]
                             [else (+ 1 (modulo number 9))])])
-    (string-append (number->string next-number)
-                   (string suit))))
+    (tile next-number suit)))
 
 (define/contract (tile<? a b)
   (-> tile? tile? boolean?)

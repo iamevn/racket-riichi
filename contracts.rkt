@@ -13,6 +13,7 @@
          list-length/c
          string-length/c
          ; not contracts but still useful and annoying to pull out of this file
+         tile
          tile-suit
          tile-number
          remove-all
@@ -95,6 +96,11 @@
 
 ; for each entry in to-remove, remove one copy from lst
 ; error if not enough tiles in lst to remove
+(define/contract (tile n suit)
+  (-> number? suit? tile?)
+  (string-append (number->string n)
+                 (string suit)))
+
 (define/contract (remove-all to-remove lst)
   (-> list? list? list?)
   (cond

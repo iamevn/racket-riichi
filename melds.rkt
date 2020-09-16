@@ -65,10 +65,8 @@
       boolean?
       meld?)
   (meld (list first-tile
-              (string-append (number->string (add1 (tile-number first-tile)))
-                             (string (tile-suit first-tile)))
-              (string-append (number->string (add1 (add1 (tile-number first-tile))))
-                             (string (tile-suit first-tile))))
+              (tile-next first-tile)
+              (tile-next (tile-next first-tile)))
         open))
 
 (define/contract (make-pon-meld first-tile open)

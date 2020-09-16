@@ -142,7 +142,22 @@
                                    groups)))
                  (if (hand-closed? h) 2 1)
                  0))))
-   (yaku 'sanshoku-doujun "3 color straight" 1 2 (λ (h g) 0))
+   (yaku 'sanshoku-doujun "3 color straight" 1 2
+         (λ (h g)
+           (let* ([melds (hand-melds h)]
+                  [chiis (filter meld-chii? melds)]
+                  [chiiset (list->set chiis)])
+             
+             (if (and (>= (length chiis) 3) ; at least 3 chiis
+                      (equal? 3 (set-count (list->set (map meld-suit chiis)))) ; all 3 suits
+                      (ormap (λ (m) ; some chii has matching chiis in the other suits
+                               (let* ([n (tile-number (meld-first m))])
+                                 (and (set-member? chiiset (make-chii-meld (tile n #\m)))
+                                      (set-member? chiiset (make-chii-meld (tile n #\p)))
+                                      (set-member? chiiset (make-chii-meld (tile n #\s))))))
+                             chiis))
+                 (if (hand-closed? h) 2 1)
+                 0))))
    (yaku 'ittsuu "straight" 1 2 (λ (h g) 0))
    (yaku 'toitoi "all triplets" 2 2 (λ (h g) 0))
    (yaku 'sanankou "three closed triplets" 2 2 (λ (h g) 0))
