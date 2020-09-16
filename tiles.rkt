@@ -11,7 +11,15 @@
          souzu
          tile->image
          shorthand->images
-         shorthand->handlist)
+         shorthand->handlist
+         tile-sort
+         tile<?
+         suit<?
+         tile-sorted?
+         tile-sort-keep-last
+         tile-sorted-keep-last?
+         tile-next
+         tile-pair?)
 
 ; load tiles using 2htdp/image
 (define tilepaths
@@ -78,3 +86,49 @@
 (define/contract (shorthand->images s)
   (-> handstring? (listof image?))
   (map tile->image (shorthand->handlist s)))
+
+(define/contract (tile-sort h)
+  (-> handlist? handlist?)
+  (sort h tile<?))
+
+(define (tile-sorted? h)
+  (equal? h (tile-sort h)))
+
+(define/contract (tile-sort-keep-last h)
+  (-> handlist? handlist?)
+  (if (empty? h)
+      h
+  (let* ([len (length h)]
+         [wait (last h)]
+         [sorted (tile-sort (drop-right h 1))])
+    (append sorted (list wait)))))
+
+(define (tile-sorted-keep-last? h)
+  (equal? h (tile-sort-keep-last h)))
+
+(define/contract (tile-next tile)
+  (-> tile? tile?)
+  (let* ([number (tile-number tile)]
+         [suit (tile-suit tile)]
+         [next-number (cond [(dragon? tile) (+ 5 (modulo (- number 4)
+                                                         3))]
+                            [(wind? tile) (+ 1 (modulo number 4))]
+                            [else (+ 1 (modulo number 9))])])
+    (string-append (number->string next-number)
+                   (string suit))))
+
+(define/contract (tile<? a b)
+  (-> tile? tile? boolean?)
+  (or (suit<? (tile-suit a) (tile-suit b))
+      (and (equal? (tile-suit a) (tile-suit b))
+           (<= (tile-number a) (tile-number b)))))
+
+(define/contract (suit<? a b)
+  (-> suit? suit? boolean?)
+  (char<? a b))
+
+(define (tile-pair? lst)
+  (and (list? lst)
+       (andmap tile? lst)
+       (equal? (first lst)
+               (second lst))))
