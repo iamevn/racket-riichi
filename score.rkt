@@ -17,6 +17,7 @@
                             [tsumo? boolean?] ; win by self draw?
                             [ron? boolean?] ; win by discard?
                             [riichi? boolean?] ; win after riichi
+                            [double? boolean?] ; win after riichi on the first turn
                             [ippatsu? boolean?] ; win in turn after riichi
                             [haitei? boolean?] ; win on last draw?
                             [houtei? boolean?] ; win on last discard?
@@ -30,13 +31,14 @@
                         #:tsumo [tsumo #false]
                         #:ron [ron #false]
                         #:riichi [riichi #false]
+                        #:double [double #false]
                         #:ippatsu [ippatsu #false]
                         #:haitei [haitei #false]
                         #:houtei [houtei #false]
                         #:chankan [chankan #false]
                         #:rinshan [rinshan #false])
   (if (xor tsumo ron)
-      (gamestate seat round dora-indicators tsumo ron riichi ippatsu houtei haitei chankan rinshan)
+      (gamestate seat round dora-indicators tsumo ron riichi double ippatsu houtei haitei chankan rinshan)
       (raise-argument-error 'make-gamestate
                             "tsumo or ron, not both"
                             (if (and tsumo ron)
@@ -124,8 +126,22 @@
                                                   (if (equal? t (gamestate-seat g)) 1 0)))]
                                [else (count-yakuhai (rest melds) han)]))))])
              (count-yakuhai (hand-melds h) 0))))
-   (yaku 'double-riichi "double riichi" 2 2 (λ (h g) 0))
-   (yaku 'chanta "half outside hand" 1 2 (λ (h g) 0))
+   (yaku 'double-riichi "double riichi" 2 2 (λ (h g) (if (gamestate-double? g) 2 0)))
+   (yaku 'chanta "half outside hand" 1 2
+         (λ (h g)
+           (let* ([tiles (hand-tiles h)]
+                  [melds (hand-melds h)]
+                  [groups (cons (hand-pair h) (map meld-tiles melds))])
+             (if (and (not (zero? (length melds)))
+                      (ormap honor? tiles) ; if there were no honors it'd be junchan
+                      #;(ormap terminal? tiles) ; if there were no terminals it'd be chinroutou
+                      (ormap simple? tiles) ; if there were no simples it'd be honroutou
+                      (andmap identity ; every group has a nonsimple
+                              (map (λ (group)
+                                     (not (andmap simple? group)))
+                                   groups)))
+                 (if (hand-closed? h) 2 1)
+                 0))))
    (yaku 'sanshoku-doujun "3 color straight" 1 2 (λ (h g) 0))
    (yaku 'ittsuu "straight" 1 2 (λ (h g) 0))
    (yaku 'toitoi "all triplets" 2 2 (λ (h g) 0))
@@ -209,7 +225,8 @@
 (let ([test-hands '("123123m445566s77z"
                     "223344m444666s77p"
                     "111222555z123m55s"
-                    #;"19m119p19s1234567z"
+                    "19m119p19s1234567z"
+                    "123m111p789s123s44z"
                     #;"34566m34666888s5s"
                     #;"11122233312344m"
                     #;"11789m12789p789s3p"
