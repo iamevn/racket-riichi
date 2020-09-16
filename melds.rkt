@@ -10,7 +10,8 @@
          meld-sorted?
          make-chii-meld
          make-pon-meld
-         make-kan-meld)
+         make-kan-meld
+         meld-has?)
 
 (require "contracts.rkt")
 (require "tiles.rkt")
@@ -104,3 +105,7 @@
     [(meld-pon? m) 'pon]
     [(meld-chii? m) 'chii]
     [else (raise-argument-error 'meld-type "chii, pon, or kan" m)]))
+
+(define/contract (meld-has? m t)
+  (-> meld? tile? boolean?)
+  (member t (meld-tiles m)))

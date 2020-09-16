@@ -1,7 +1,12 @@
 #lang racket
 
 (provide (struct-out scoring)
-         count-points)
+         (struct-out gamestate)
+         make-gamestate
+         (struct-out yaku)
+         (struct-out yakuman)
+         count-points
+         match-yaku)
 
 (require "contracts.rkt")
 (require "tiles.rkt")
@@ -158,18 +163,130 @@
                              chiis))
                  (if (hand-closed? h) 2 1)
                  0))))
-   (yaku 'ittsuu "straight" 1 2 (λ (h g) 0))
-   (yaku 'toitoi "all triplets" 2 2 (λ (h g) 0))
-   (yaku 'sanankou "three closed triplets" 2 2 (λ (h g) 0))
-   (yaku 'sanshoku-doukou "three colored triplets" 2 2 (λ (h g) 0))
-   (yaku 'sankantsu "three kans" 2 2 (λ (h g) 0))
-   (yaku 'chiitoitsu "seven pairs" 0 2 (λ (h g) 0))
-   (yaku 'honroutou "outside hand" 2 2 (λ (h g) 0))
-   (yaku 'shousangen "small three dragons" 2 2 (λ (h g) 0))
-   (yaku 'honitsu "half flush" 2 3 (λ (h g) 0))
-   (yaku 'junchan "all terminals" 2 3 (λ (h g) 0))
-   (yaku 'ryanpeikou "two double sequences" 0 3 (λ (h g) 0))
-   (yaku 'chinitsu "flush" 5 6 (λ (h g) 0))))
+   (yaku 'ittsuu "straight" 1 2
+         (λ (h g)
+           (let* ([melds (hand-melds h)]
+                  [chiis (filter meld-chii? melds)]
+                  [chiiset (list->set chiis)]
+                  [chiistarts (list->set (set-map chiiset meld-first))])
+             (if (or (and (set-member? chiistarts (tile 1 #\m))
+                          (set-member? chiistarts (tile 4 #\m))
+                          (set-member? chiistarts (tile 5 #\m)))
+                     (and (set-member? chiistarts (tile 1 #\p))
+                          (set-member? chiistarts (tile 4 #\p))
+                          (set-member? chiistarts (tile 5 #\p)))
+                     (and (set-member? chiistarts (tile 1 #\s))
+                          (set-member? chiistarts (tile 4 #\s))
+                          (set-member? chiistarts (tile 5 #\s))))
+                 (if (hand-closed? h) 2 1)
+                 0))))
+   (yaku 'toitoi "all triplets" 2 2
+         (λ (h g)
+           (if (equal? 4 (length (filter (λ (m) (or (meld-pon? m)
+                                                    (meld-kan? m)))
+                                         (hand-melds h))))
+               2
+               0)))
+   (yaku 'sanankou "three closed triplets" 2 2
+         (λ (h g)
+           (let* ([melds (hand-melds h)]
+                  [closed-pons (filter (λ (m) (and (not (meld-open? m))
+                                                   (not (meld-chii? m))))
+                                       melds)])
+             (if (< (length closed-pons) 3)
+                 0
+                 (if (gamestate-tsumo? g)
+                     2
+                     (if (or (equal? (length closed-pons) 4) ; 4 closed triplets means 3 were already formed before the ron
+                             (equal? (hand-last-tile h)
+                                     (first (hand-pair h))) ; finishing tile in pair means triplets already formed
+                             (ormap (λ (m) (meld-has? m (hand-last-tile h)))
+                                    (filter meld-chii? (hand-melds h)))) ; finishing tile in chii means triplets already formed
+                         2
+                         0))))))
+   (yaku 'sanshoku-doukou "three colored triplets" 2 2
+         (λ (h g)
+           (let* ([melds (hand-melds h)]
+                  [pons (filter (λ (m) (not (equal? #\z (meld-suit m))))
+                                (filter meld-pon? melds))] ; non-honor pons
+                  [ponset (list->set pons)])
+             
+             (if (and (>= (length pons) 3) ; at least 3 pons
+                      (equal? 3 (set-count (list->set (map meld-suit pons)))) ; all 3 suits
+                      (ormap (λ (m) ; some chii has matching chiis in the other suits
+                               (let* ([n (tile-number (meld-first m))])
+                                 (and (set-member? ponset (make-pon-meld (tile n #\m)))
+                                      (set-member? ponset (make-pon-meld (tile n #\p)))
+                                      (set-member? ponset (make-pon-meld (tile n #\s))))))
+                             pons))
+                 2
+                 0))))
+   (yaku 'sankantsu "three kans" 2 2
+         (λ (h g)
+           (if (>= (length (filter meld-kan? (hand-melds h)))
+                   3)
+               2
+               0)))
+   (yaku 'chiitoitsu "seven pairs" 0 2
+         (λ (h g) (if (and (empty? (hand-melds h))
+                           (chiitoi? (hand-tiles h)))
+                      2
+                      0)))
+   (yaku 'honroutou "no simples" 2 2
+         (λ (h g) (let ([melds (hand-melds h)]
+                        [tiles (hand-tiles h)])
+                    (if (and (not (ormap simple? tiles))
+                             (ormap terminal? tiles)
+                             (ormap honor? tiles))
+                        2
+                        0))))
+   (yaku 'shousangen "small three dragons" 2 2
+         (λ (h g)
+           (if (and (dragon? (first (hand-pair h)))
+                    (let* ([melds (hand-melds h)]
+                           [pons (filter (λ (m) (or (meld-pon? m) (meld-kan? m)))
+                                         melds)]
+                           [pontiles (map meld-first pons)])
+                      (equal? (length (filter dragon? pontiles))
+                              2)))
+               2
+               0)))
+   (yaku 'honitsu "half flush" 2 3
+         (λ (h g)
+           (let* ([suits (list->set (map tile-suit (hand-tiles h)))])
+             (if (and (set-member? suits #\z)
+                      (equal? (set-count suits) 2))
+                 (if (hand-closed? h) 3 2)
+                 0))))
+   (yaku 'junchan "all outside" 2 3
+         (λ (h g)
+           (let* ([tiles (hand-tiles h)]
+                  [melds (hand-melds h)]
+                  [groups (cons (hand-pair h) (map meld-tiles melds))])
+             (if (and (not (zero? (length melds)))
+                      (not (ormap honor? tiles))
+                      (andmap identity ; every group has a nonsimple
+                              (map (λ (group)
+                                     (not (andmap simple? group)))
+                                   groups)))
+                 (if (hand-closed? h) 3 2)
+                 0))))
+   (yaku 'ryanpeikou "two double sequences" 0 3
+         (λ (h g) (if (and (hand-closed? h)
+                           ; exactly two types of chii appearing more than once in the hand
+                           (let* ([melds (hand-melds h)]
+                                  [chiis (filter meld-chii? melds)]
+                                  [distinct-chiis (set->list (list->set chiis))])
+                             (equal? 2 (length (filter (λ (n) (> n 1))
+                                                       (map (λ (c)
+                                                              (length (filter (λ (m) (equal? c m)) chiis)))
+                                                            distinct-chiis))))))
+                      3
+                      0)))
+   (yaku 'chinitsu "flush" 5 6
+         (λ (h g) (if (equal? 1 (set-count (list->set (map tile-suit (hand-tiles h)))))
+                      (if (hand-closed? h) 6 5)
+                      0)))))
 
 (define yakumanlist
   (list
@@ -234,24 +351,3 @@
 (define/contract (count-points h gs)
   (-> (and/c hand? hand-finished?) gamestate? (listof (number? symbol?))) ; make a target contract
   '())
-
-
-(require "parse-hand.rkt")
-(let ([test-hands '("123123m445566s77z"
-                    "223344m444666s77p"
-                    "111222555z123m55s"
-                    "19m119p19s1234567z"
-                    "123m111p789s123s44z"
-                    #;"34566m34666888s5s"
-                    #;"11122233312344m"
-                    #;"11789m12789p789s3p"
-                    #;"12345m666788p333z")])
-  (map (λ (h)
-         (map (λ (configuration)
-                (match-yaku configuration
-                            (make-gamestate (wind 'e)
-                                            (wind 's)
-                                            '("8p")
-                                            #:ron #true)))
-              (make-hands h)))
-       test-hands))
