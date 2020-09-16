@@ -27,7 +27,7 @@
 (define (make-gamestate seat
                         round
                         dora-indicators
-                        #:tsumo [tsumo #true]
+                        #:tsumo [tsumo #false]
                         #:ron [ron #false]
                         #:riichi [riichi #false]
                         #:ippatsu [ippatsu #false]
@@ -105,10 +105,25 @@
                       0)))
    (yaku 'haitei "last draw" 1 1 (λ (h g) (if (gamestate-haitei? g) 1 0)))
    (yaku 'houtei "last discard" 1 1 (λ (h g) (if (gamestate-houtei? g) 1 0)))
-   (yaku 'rinshan "dead wall draw" 1 1 (λ (h g) 0))
-   (yaku 'chankan "robbing a kan" 1 1 (λ (h g) 0))
-   (yaku 'tanyao "all simples" 1 1 (λ (h g) 0))
-   (yaku 'yakuhai "value tiles" 1 1 (λ (h g) 0))
+   (yaku 'rinshan "dead wall draw" 1 1 (λ (h g) (if (gamestate-rinshan? g) 1 0)))
+   (yaku 'chankan "robbing a kan" 1 1 (λ (h g) (if (gamestate-chankan? g) 1 0)))
+   (yaku 'tanyao "all simples" 1 1 (λ (h g) (if (andmap simple? (hand-tiles h)) 1 0)))
+   (yaku 'yakuhai "value tiles" 1 1
+         (λ (h g)
+           (letrec ([count-yakuhai
+                     (λ (melds han)
+                       (if (empty? melds) han
+                           (let* ([m (first melds)]
+                                  [t (meld-first m)])
+                             (cond
+                               [(dragon? t) (count-yakuhai (rest melds) (add1 han))]
+                               [(wind? t)
+                                (count-yakuhai (rest melds)
+                                               (+ han
+                                                  (if (equal? t (gamestate-round g)) 1 0)
+                                                  (if (equal? t (gamestate-seat g)) 1 0)))]
+                               [else (count-yakuhai (rest melds) han)]))))])
+             (count-yakuhai (hand-melds h) 0))))
    (yaku 'double-riichi "double riichi" 2 2 (λ (h g) 0))
    (yaku 'chanta "half outside hand" 1 2 (λ (h g) 0))
    (yaku 'sanshoku-doujun "3 color straight" 1 2 (λ (h g) 0))
@@ -150,7 +165,7 @@
 
 (define/contract (count-fu h g)
   (-> (and/c hand? hand-finished?) gamestate? number?)
-  0) ; TODO fu count
+  -1) ; TODO fu count
 
 (define/contract (match-yaku h g)
   (-> (and/c hand? hand-finished?) gamestate? (listof (list/c yaku? number?)))
@@ -192,7 +207,8 @@
 
 (require "parse-hand.rkt")
 (let ([test-hands '("123123m445566s77z"
-                    "123123m444666s77z"
+                    "223344m444666s77p"
+                    "111222555z123m55s"
                     #;"19m119p19s1234567z"
                     #;"34566m34666888s5s"
                     #;"11122233312344m"
@@ -203,6 +219,7 @@
                 (match-yaku configuration
                             (make-gamestate (wind 'e)
                                             (wind 's)
-                                            '("8p"))))
+                                            '("8p")
+                                            #:ron #true)))
               (make-hands h)))
        test-hands))

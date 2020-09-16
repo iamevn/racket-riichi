@@ -2,6 +2,7 @@
 (provide (struct-out meld)
          meld-suit
          meld-numbers
+         meld-first
          meld-chii?
          meld-pon?
          meld-kan?
@@ -25,6 +26,10 @@
 (define/contract (meld-numbers meld)
   (-> meld? (listof number?))
   (map tile-number (meld-tiles meld)))
+
+(define/contract (meld-first meld)
+  (-> meld? tile?)
+  (first (meld-tiles meld)))
 
 (define/contract (meld-chii? meld)
   (-> meld? boolean?)
