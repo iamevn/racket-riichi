@@ -1,5 +1,7 @@
 #lang racket
 (provide (struct-out hand)
+         hand-open?
+         hand-closed?
          hand-finished?
          chiitoi?
          kokushi?
@@ -15,6 +17,14 @@
                                     (list-length/c 2)
                                     all-equal?)]
                        [last-tile tile?]) #:transparent)
+
+(define/contract (hand-open? h)
+  (-> hand? boolean?)
+  (ormap meld-open? (hand-melds h)))
+
+(define/contract (hand-closed? h)
+  (-> hand? boolean?)
+  (not (hand-open? h)))
 
 (define/contract (hand-finished? hand)
   (-> hand? boolean?)

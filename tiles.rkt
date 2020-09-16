@@ -19,7 +19,8 @@
          tile-sort-keep-last
          tile-sorted-keep-last?
          tile-next
-         tile-pair?)
+         tile-pair?
+         wind)
 
 ; load tiles using 2htdp/image
 (define tilepaths
@@ -132,3 +133,13 @@
        (andmap tile? lst)
        (equal? (first lst)
                (second lst))))
+
+
+(define/contract (wind w)
+  (-> symbol? wind?)
+  (case w
+    [(e east) "1z"]
+    [(s south) "2z"]
+    [(w west) "3z"]
+    [(n north) "4z"]
+    [else (raise-argument-error 'wind "a symbol representing a wind '(e s w n east south west north)" w)]))

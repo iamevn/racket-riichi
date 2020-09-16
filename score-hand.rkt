@@ -15,5 +15,5 @@
                                              hand)
         (foldl (λ (a b) (max (scoring-points a)
                              (scoring-points b)))
-               dummy-score
+               (scoring 0 0 '())
                (map count-points hands)))))
