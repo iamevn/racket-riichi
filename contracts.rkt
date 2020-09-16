@@ -14,7 +14,10 @@
          string-length/c
          ; not contracts but still useful and annoying to pull out of this file
          tile-suit
-         tile-number)
+         tile-number
+         remove-all
+         count-distinct
+         all-equal?)
 
 (define (handlist? hand)
   (and (list? hand)
@@ -25,14 +28,6 @@
   (set-member? (set #\m #\p #\s #\z) char))
 
 (define (tile? tile)
-  #;(and (string? e)
-         (equal? (string-length e) 2)
-         (char-numeric? (string-ref e 0))
-         ; invalid honors
-         (not (or (equal? e "0z")
-                  (equal? e "8z")
-                  (equal? e "9z")))
-         (suit? (string-ref e 1)))
   (and (handstring? tile)
        (equal? (string-length tile) 2)))
 
@@ -97,3 +92,22 @@
    (string->symbol (string-append "string-length-" (number->string n)))
    (λ (s)
      (equal? (string-length s) n))))
+
+; for each entry in to-remove, remove one copy from lst
+; error if not enough tiles in lst to remove
+(define/contract (remove-all to-remove lst)
+  (-> list? list? list?)
+  (cond
+    [(empty? to-remove) lst]
+    [(member (first to-remove) lst)
+     (remove-all (rest to-remove)
+                 (remove (first to-remove) lst))]
+    [else (raise-argument-error 'remove-all "leftover entries in to-remove" to-remove)]))
+
+(define/contract (count-distinct lst)
+  (-> list? number?)
+  (set-count (list->set lst)))
+
+(define/contract (all-equal? lst)
+  (-> list? boolean?)
+  (equal? 1 (count-distinct lst)))
