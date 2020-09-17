@@ -1,5 +1,6 @@
 #lang racket
-(provide make-hands)
+(provide make-hands
+         find-waits)
 
 (require "contracts.rkt")
 (require "tiles.rkt")
@@ -139,3 +140,29 @@
            #;"11789m12789p789s3p"
            "12345m666788p333z")])
     (map test-hand-parse test-hands)))
+
+(define/contract (find-waits h)
+  (-> handstring? (listof tile?))
+  (let* ([all-tiles (flatten (list (map (λ (n) (tile n #\m)) (range 1 10))
+                                   (map (λ (n) (tile n #\p)) (range 1 10))
+                                   (map (λ (n) (tile n #\s)) (range 1 10))
+                                   (map (λ (n) (tile n #\z)) (range 1 8))))]
+         [handlist (shorthand->handlist h)]
+         [remaining-tiles (filter (λ (t) (< (count ((curry equal?) t) handlist)
+                                            4))
+                                  all-tiles)])
+    (filter (λ (t) (not (empty? (make-hands (append handlist (list t))))))
+            remaining-tiles)))
+
+(define (check-display-waits h)
+    (display h)
+    (newline)
+    (display-hand h)
+    (newline)
+    (let ([waits (find-waits h)])
+      (unless (empty? waits)
+        (display "Waits:")
+        (newline)
+        (display-hand waits))))
+
+#;(check-display-waits "123123m3334455p")
