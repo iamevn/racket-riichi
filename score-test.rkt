@@ -1,4 +1,5 @@
 #lang racket
+(require rackunit)
 (require "parse-hand.rkt")
 (require "score.rkt")
 (require "contracts.rkt")
@@ -6,21 +7,95 @@
 (require "melds.rkt")
 (require "hand.rkt")
 
-(let ([test-hands '("123123m445566s77z"
-                    "223344m444666s77p"
-                    "111222555z123m55s"
-                    "19m119p19s1234567z"
-                    "123m111p789s123s44z"
-                    #;"34566m34666888s5s"
-                    #;"11122233312344m"
-                    #;"11789m12789p789s3p"
-                    #;"12345m666788p333z")])
-  (map (λ (h)
-         (map (λ (configuration)
-                (match-yaku configuration
-                            (make-gamestate (wind 'e)
-                                            (wind 's)
-                                            '("8p")
-                                            #:ron #true)))
-              (make-hands h)))
-       test-hands))
+(define/contract (member? v lst)
+  (-> any/c list? boolean?)
+  (not (false? (member v lst))))
+
+(define positive-yaku-test-cases
+  (map (λ (l) (let ([h (first l)]
+                    [g (second l)]
+                    [y (third l)])
+                (list h
+                      (make-gamestate (wind 'e)
+                                      (wind 's)
+                                      '("4p")
+                                      #:riichi (member? 'rii g)
+                                      #:tsumo (member? 'tsu g)
+                                      #:ron (member? 'ron g)
+                                      #:ippatsu (member? 'ipp g)
+                                      #:double (member? 'dou g)
+                                      #:haitei (member? 'hai g)
+                                      #:houtei (member? 'hou g)
+                                      #:chankan (member? 'cha g)
+                                      #:rinshan (member? 'rin g))
+                      y)))
+       '(("123123m7744p897s7p" (rii tsu) menzen-tsumo)
+         ("123123m7744p897s7p" (rii tsu) riichi)
+         ("123123m7744p897s7p" (rii ipp ron) ippatsu)
+         #;("234m45789p45688s3p" (tsu) pinfu) ; pinfu unimplemented
+         ("445566p111234m55z" (tsu) iipeikou)
+         ("123123m7744p897s7p" (tsu hai) haitei)
+         ("123123m7744p897s7p" (ron hou) houtei)
+         #;("123123m4p897s4p 7777p" (tsu rin) rinshan) ; make-hands can't make kans
+         ("123123m7744p897s7p" (ron cha) chankan)
+         ("33344m22256788p4m" (tsu) tanyao)
+         ("123p55s66z999p111z5s" (tsu) yakuhai)
+         ("123p55s66z999p3336z" (tsu) yakuhai))))
+; TODO: rest of yaku
+; TODO: negative test cases
+
+
+(define valid-yaku (list->set '(menzen-tsumo
+                                riichi
+                                ippatsu
+                                pinfu
+                                iipeikou
+                                haitei
+                                houtei
+                                rinshan
+                                chankan
+                                tanyao
+                                yakuhai
+                                double-riichi
+                                chanta
+                                sanshoku-doujun
+                                ittsuu
+                                toitoi
+                                sanankou
+                                sanshoku-doukou
+                                sankantsu
+                                chiitoitsu
+                                honroutou
+                                shousangen
+                                honitsu
+                                junchan
+                                ryanpeikou
+                                chinitsu)))
+
+(define (valid-yaku? s) (set-member? valid-yaku s))
+
+(check-true (andmap (λ (yt) (valid-yaku? (third yt))) positive-yaku-test-cases))
+
+(define-check (check-yaku? yl)
+  (let* ([h (first yl)]
+         [g (second yl)]
+         [y (third yl)]
+         [configurations (make-hands h)]
+         [found-yaku (map (λ (configuration)
+                            (match-yaku configuration g))
+                          configurations)]
+         [found-ids (map (λ (yl) (yaku-id (first yl)))
+                         (append* found-yaku))])
+    (with-check-info (['hands h]
+                      ['gamestate g]
+                      ['match-yaku-result found-yaku]
+                      ['yaku-ids found-ids])
+      (unless (member? y found-ids)
+        (fail-check)))))
+
+(define score-tests
+  (make-test-suite "Tests for yaku matcher"
+                   (map (λ (tc)
+                          (test-case (symbol->string (third tc))
+                                     (check-yaku? tc)))
+                        positive-yaku-test-cases)))

@@ -43,12 +43,10 @@
                         #:chankan [chankan #false]
                         #:rinshan [rinshan #false])
   (if (xor tsumo ron)
-      (gamestate seat round dora-indicators tsumo ron riichi double ippatsu houtei haitei chankan rinshan)
+      (gamestate seat round dora-indicators tsumo ron riichi double ippatsu haitei houtei chankan rinshan)
       (raise-argument-error 'make-gamestate
                             "tsumo or ron, not both"
-                            (if (and tsumo ron)
-                                "#:tsumo #true #:ron #true"
-                                "#:tsumo #false #:ron #false"))))
+                            (~a "#:tsumo " tsumo " #:ron " ron))))
 
 (struct/contract yaku ([id symbol?]
                        [description string?]

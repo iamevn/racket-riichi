@@ -7,7 +7,7 @@
 (require "parse-hand.rkt")
 
 ; given finished handlist/string find biggest scoring arrangement
-(define/contract (score-hand hand)
+#;(define/contract (score-hand hand)
   (-> (or/c handlist? handstring?) scoring?)
   (let ([hands (make-hands hand)])
     (if (empty? hands) (raise-argument-error 'score-hand

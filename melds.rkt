@@ -55,15 +55,15 @@
     (and (equal? (length numbers) 4)
          (equal? (set-count distinct) 1))))
 
-(define/contract (make-chii-meld first-tile open)
-  (-> (and/c tile?
+(define/contract (make-chii-meld first-tile [open #false])
+  (->* ((and/c tile?
              (not/c honor?)
              (flat-named-contract
               'tile-not-8-or-9
               (λ (tile)
                 (not (set-member? (set 8 9)
-                                  (tile-number tile))))))
-      boolean?
+                                  (tile-number tile)))))))
+      (boolean?)
       meld?)
   (meld (list first-tile
               (tile-next first-tile)
