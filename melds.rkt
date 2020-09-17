@@ -6,6 +6,7 @@
          meld-chii?
          meld-pon?
          meld-kan?
+         meld-closed?
          meld-sort
          meld-sorted?
          make-chii-meld
@@ -54,6 +55,10 @@
          [distinct (apply set numbers)])
     (and (equal? (length numbers) 4)
          (equal? (set-count distinct) 1))))
+
+(define/contract (meld-closed? meld)
+  (-> meld? boolean?)
+  (not (meld-open? meld)))
 
 (define/contract (make-chii-meld first-tile [open #false])
   (->* ((and/c tile?
@@ -108,4 +113,4 @@
 
 (define/contract (meld-has? m t)
   (-> meld? tile? boolean?)
-  (member t (meld-tiles m)))
+  (not (not (member t (meld-tiles m)))))

@@ -32,7 +32,7 @@
        '(("123123m7744p897s7p" (rii tsu) menzen-tsumo)
          ("123123m7744p897s7p" (rii tsu) riichi)
          ("123123m7744p897s7p" (rii ipp ron) ippatsu)
-         #;("234m45789p45688s3p" (tsu) pinfu) ; pinfu unimplemented
+         ("234m45789p45688s3p" (tsu) pinfu)
          ("445566p111234m55z" (tsu) iipeikou)
          ("123123m7744p897s7p" (tsu hai) haitei)
          ("123123m7744p897s7p" (ron hou) houtei)
@@ -93,7 +93,7 @@
 
 (check-true (andmap (λ (yt) (valid-yaku? (third yt))) positive-yaku-test-cases))
 
-(define-check (check-yaku? yl)
+(define-check (check-yaku? yl present)
   (let* ([h (first yl)]
          [g (second yl)]
          [y (third yl)]
@@ -107,12 +107,58 @@
                       ['gamestate g]
                       ['match-yaku-result found-yaku]
                       ['yaku-ids found-ids])
-      (unless (member? y found-ids)
-        (fail-check)))))
+      (if present
+          (unless (member? y found-ids)
+            (fail-check))
+          (when (member? y found-ids)
+            (fail-check))))))
 
 (define score-tests
   (make-test-suite "Tests for yaku matcher"
                    (map (λ (tc)
                           (test-case (symbol->string (third tc))
-                                     (check-yaku? tc)))
+                                     (check-yaku? tc #true)))
                         positive-yaku-test-cases)))
+
+(define pinfu-test-cases
+  (map (λ (l) (let ([h (first l)]
+                    [g (second l)]
+                    [present (third l)])
+                (list h
+                      (make-gamestate (wind 'e)
+                                      (wind 's)
+                                      '("4p")
+                                      #:riichi (member? 'rii g)
+                                      #:tsumo (member? 'tsu g)
+                                      #:ron (member? 'ron g)
+                                      #:ippatsu (member? 'ipp g)
+                                      #:double (member? 'dou g)
+                                      #:haitei (member? 'hai g)
+                                      #:houtei (member? 'hou g)
+                                      #:chankan (member? 'cha g)
+                                      #:rinshan (member? 'rin g))
+                      present)))
+       '(("234m45789p45688s3p" (tsu) #true)
+         ("234m45789p45688s3p" (ron) #true))))
+
+(define pinfu-tests
+  (make-test-suite "Tests for pinfu yaku"
+                   (map (λ (tc)
+                          (test-case (~a tc)
+                                     (check-yaku? (list (first tc)
+                                                        (second tc)
+                                                        'pinfu)
+                                                  (third tc))))
+                        pinfu-test-cases)))
+
+#; (count-fu (hand (tile-sort-keep-last (shorthand->handlist "456m1122z1111s77771z"))
+                (meld-sort (list (make-chii-meld "4m")
+                                 (make-pon-meld "1z")
+                                 (make-kan-meld "1s")
+                                 (make-kan-meld "7z")))
+                '("2z" "2z")
+                "1z")
+          (make-gamestate (wind 's)
+                          (wind 's)
+                          '("3z")
+                          #:ron #true))

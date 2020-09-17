@@ -1,6 +1,8 @@
 #lang racket
 (provide make-hands
-         find-waits)
+         find-tenpai-waits
+         find-hand-waits
+         find-simple-wait-patterns)
 
 (require "contracts.rkt")
 (require "tiles.rkt")
@@ -141,7 +143,7 @@
            "12345m666788p333z")])
     (map test-hand-parse test-hands)))
 
-(define/contract (find-waits h)
+(define/contract (find-tenpai-waits h)
   (-> handstring? (listof tile?))
   (let* ([all-tiles (flatten (list (map (λ (n) (tile n #\m)) (range 1 10))
                                    (map (λ (n) (tile n #\p)) (range 1 10))
@@ -154,15 +156,77 @@
     (filter (λ (t) (not (empty? (make-hands (append handlist (list t))))))
             remaining-tiles)))
 
+; check waits for a specific grouping of a hand
+(define/contract (find-hand-waits h)
+  (-> hand? (listof tile?))
+  (let* ([last-tile (hand-last-tile h)]
+         [melds-with-last-tile (filter (λ (m) (meld-has? m last-tile))
+                                       (hand-melds h))]
+         [pair-has-last-tile (not (not (member last-tile (hand-pair h))))]
+         [non-meld-waits (if pair-has-last-tile
+                             (list (first (hand-pair h)))
+                             '())])
+    (flatten (list non-meld-waits
+                   (map (λ (m)
+                          (cond
+                            [(and (meld-chii? m)
+                                  (equal? last-tile (first (meld-tiles m))))
+                             (list (first (meld-tiles m))
+                                   (tile-next (third (meld-tiles m))))]
+                            [(and (meld-chii? m)
+                                  (equal? last-tile (third (meld-tiles m))))
+                             (list (tile-prev (first (meld-tiles m)))
+                                   (third (meld-tiles m)))]
+                            [else last-tile]))
+                        melds-with-last-tile)))))
+
+(define/contract (find-simple-wait-patterns h)
+  (-> hand? (and/c symbol? (λ (s) (set-member? (set 'ryanmen 'kanchan 'penchan 'tanki 'shanpon) s))))
+  (let* ([melds (hand-melds h)]
+         [pair-tile (first (hand-pair h))]
+         [last-tile (hand-last-tile h)]
+         [pons (filter meld-pon? melds)]
+         [chiis (filter meld-chii? melds)]
+         [has-pons (not (empty? pons))]
+         [has-chiis (not (empty? chiis))]
+         [last-in-pair (equal? last-tile pair-tile)]
+         [pons-with-last (filter (λ (m) (meld-has? m last-tile)) pons)]
+         [last-in-pon (not (empty? pons-with-last))]
+         [chiis-with-last (filter (λ (m) (meld-has? m last-tile)) chiis)]
+         [last-in-chii (not (empty? chiis-with-last))])
+    (cond
+      [last-in-pon 'shanpon] ;doesn't catch one side of entotsu
+      [last-in-pair 'tanki]
+      [(and last-in-chii
+            (ormap (λ (m) (or (and (equal? last-tile (first (meld-tiles m)))
+                                   (not (equal? (tile-number (meld-first m)) 7)))
+                              (and (equal? last-tile (third (meld-tiles m)))
+                                   (not (equal? (tile-number (meld-first m)) 1)))))
+                   chiis-with-last))
+       'ryanmen]
+      [(and last-in-chii
+            (ormap (λ (m) (equal? last-tile (second (meld-tiles m))))
+                   chiis-with-last))
+       'kanchan]
+      [(and last-in-chii
+            (ormap (λ (m) (or (and (equal? last-tile (first (meld-tiles m)))
+                                   (equal? (tile-number (meld-first m)) 7))
+                              (and (equal? last-tile (third (meld-tiles m)))
+                                   (equal? (tile-number (meld-first m)) 1))))
+                   chiis-with-last))
+       'penchan])))
+
 (define (check-display-waits h)
-    (display h)
-    (newline)
-    (display-hand h)
-    (newline)
-    (let ([waits (find-waits h)])
-      (unless (empty? waits)
-        (display "Waits:")
-        (newline)
-        (display-hand waits))))
+  (display h)
+  (newline)
+  (display-hand h)
+  (newline)
+  (let ([waits (if (handstring? h)
+                   (find-tenpai-waits h)
+                   (find-hand-waits h))])
+    (unless (empty? waits)
+      (display "Waits:")
+      (newline)
+      (display-hand waits))))
 
 #;(check-display-waits "123123m3334455p")

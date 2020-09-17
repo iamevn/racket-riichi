@@ -4,7 +4,9 @@
          hand-closed?
          hand-finished?
          chiitoi?
+         hand-chiitoi?
          kokushi?
+         hand-kokushi?
          display-hand)
 
 (require "tiles.rkt")
@@ -41,20 +43,30 @@
         [else (display-hand (apply string-append tiles))]))
 
 ; special yaku
-(define/contract (chiitoi? hand)
+(define/contract (chiitoi? tiles)
   (-> handlist? boolean?)
-  (and (equal? 14 (length hand))
-       (equal? 7 (count-distinct hand))
+  (and (equal? 14 (length tiles))
+       (equal? 7 (count-distinct tiles))
        (letrec ([all-pairs? (λ (hand)
                               (cond
                                 [(empty? hand) #true]
                                 [(equal? (first hand) (second hand))
                                  (all-pairs? (drop hand 2))]
                                 [else #false]))])
-         (all-pairs? (tile-sort hand)))))
+         (all-pairs? (tile-sort tiles)))))
+
+(define/contract (hand-chiitoi? h)
+  (-> hand? boolean?)
+  (and (empty? (hand-melds h))
+       (chiitoi? (hand-tiles h))))
 
 (define/contract (kokushi? hand)
   (-> handlist? boolean?)
   (and (equal? 14 (length hand))
        (equal? (list->set hand)
                (list->set (shorthand->handlist "19m19p19s1234567z")))))
+
+(define/contract (hand-kokushi? h)
+  (-> hand? boolean?)
+  (and (empty? (hand-melds h))
+       (kokushi? (hand-tiles h))))

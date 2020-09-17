@@ -19,6 +19,7 @@
          tile-sort-keep-last
          tile-sorted-keep-last?
          tile-next
+         tile-prev
          tile-pair?
          wind)
 
@@ -116,6 +117,18 @@
                             [(wind? t) (+ 1 (modulo number 4))]
                             [else (+ 1 (modulo number 9))])])
     (tile next-number suit)))
+
+(define/contract (tile-prev t)
+  (-> tile? tile?)
+  (let* ([number (tile-number t)]
+         [suit (tile-suit t)]
+         [prev-number (cond [(dragon? t) (+ 5 (modulo (- number 6)
+                                                      3))]
+                            [(wind? t) (+ 1 (modulo (- number 2)
+                                                    4) )]
+                            [else (+ 1 (modulo (- number 2)
+                                               9))])])
+    (tile prev-number suit)))
 
 (define/contract (tile<? a b)
   (-> tile? tile? boolean?)
