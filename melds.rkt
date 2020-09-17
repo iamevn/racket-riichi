@@ -70,12 +70,12 @@
               (tile-next (tile-next first-tile)))
         open))
 
-(define/contract (make-pon-meld first-tile open)
-  (-> tile? boolean? meld?)
+(define/contract (make-pon-meld first-tile [open #false])
+  (->* (tile?) (boolean?) meld?)
   (meld (make-list 3 first-tile) open))
 
-(define/contract (make-kan-meld first-tile open)
-  (-> tile? boolean? meld?)
+(define/contract (make-kan-meld first-tile [open #false])
+  (->* (tile?) (boolean?) meld?)
   (meld (make-list 4 first-tile) open))
 
 (define/contract (meld-sort melds)

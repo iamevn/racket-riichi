@@ -40,7 +40,24 @@
          ("123123m7744p897s7p" (ron cha) chankan)
          ("33344m22256788p4m" (tsu) tanyao)
          ("123p55s66z999p111z5s" (tsu) yakuhai)
-         ("123p55s66z999p3336z" (tsu) yakuhai))))
+         ("123p55s66z999p3336z" (tsu) yakuhai)
+         ("123123m7744p897s7p" (rii dou tsu) double-riichi)
+         ("11m789p123s22z123p1m" (tsu) chanta)
+         ("4568m456p456s555z8m" (ron) sanshoku-doujun)
+         ("123456789m333z22p" (ron) ittsuu)
+         ("111m77p44s222z888p7p" (ron) toitoi)
+         ("666m777p44s222z123p" (tsu) sanankou)
+         ("777m888p33s11777z3s" (ron) sanankou)
+         ("456777m5777s777p5s" (ron) sanshoku-doukou)
+         #;("456m22s 6666p9999s5555s" (tsu) sankantsu) ; make-hands can't make kans
+         ("1177p33z55m2z44s552z" (ron) chiitoitsu)
+         ("1177p33z55m2z44s552z" (tsu) chiitoitsu)
+         ("11199m22z999s444z9m" (ron) honroutou)
+         ("123345s55566677z" (ron) shousangen)
+         ("66789p22444z1236p" (ron) honitsu)
+         ("1999m789p123123s1m" (ron) junchan)
+         ("456456m67868p22s7p" (tsu) ryanpeikou)
+         ("12334556679996p" (ron) chinitsu))))
 ; TODO: rest of yaku
 ; TODO: negative test cases
 
