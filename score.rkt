@@ -7,15 +7,16 @@
          (struct-out yakuman)
          count-points
          count-fu
-         match-yaku)
+         match-yaku
+         match-yakuman)
 
 (require "contracts.rkt")
 (require "tiles.rkt")
 (require "melds.rkt")
 (require "hand.rkt")
 (require "parse-hand.rkt")
+(require "rule-config.rkt")
 
-(define kiriage #true) ; TODO: make configurable
 
 ; general game state around a win
 (struct/contract gamestate ([seat wind?] ; what seat play is in
@@ -29,7 +30,8 @@
                             [haitei? boolean?] ; win on last draw?
                             [houtei? boolean?] ; win on last discard?
                             [chankan? boolean?] ; win by robbing kan?
-                            [rinshan? boolean?]) ; win on deadwall draw after kan?
+                            [rinshan? boolean?] ; win on deadwall draw after kan?
+                            [tenhou/chiihou? boolean?]) ; win on first draw
                  #:transparent)
 
 (define (make-gamestate seat
@@ -43,9 +45,11 @@
                         #:haitei [haitei #false]
                         #:houtei [houtei #false]
                         #:chankan [chankan #false]
-                        #:rinshan [rinshan #false])
+                        #:rinshan [rinshan #false]
+                        #:tenhou/chiihou [tenhou/chiihou #false])
   (if (xor tsumo ron)
-      (gamestate seat round dora-indicators tsumo ron riichi double ippatsu haitei houtei chankan rinshan)
+      (gamestate seat round dora-indicators tsumo ron riichi double
+                 ippatsu haitei houtei chankan rinshan tenhou/chiihou)
       (raise-argument-error 'make-gamestate
                             "tsumo or ron, not both"
                             (~a "#:tsumo " tsumo " #:ron " ron))))
@@ -291,25 +295,125 @@
 (define yakumanlist
   (list
    #;(yakuman 'kazoe "counted yakuman" #true (λ (h g) 0))
-   (yakuman 'kokushi-musou "thirteen orphans" #false (λ (h g) 0))
-   (yakuman 'suuankou "four concealed triplets" #false (λ (h g) 0))
-   (yakuman 'daisangen "big three dragons" #true (λ (h g) 0))
-   (yakuman 'shousuushi "small four winds" #true (λ (h g) 0))
-   (yakuman 'daisuushi "big four winds" #true (λ (h g) 0))
-   (yakuman 'tsuuiisou "all honors" #true (λ (h g) 0))
-   (yakuman 'chinroutou "all terminals" #true (λ (h g) 0))
-   (yakuman 'ryuuiisou "all green" #true (λ (h g) 0))
-   (yakuman 'chuuren "nine gates" #false (λ (h g) 0))
-   (yakuman 'suukantsu "four kans" #true (λ (h g) 0))
+   (yakuman 'kokushi-musou "thirteen orphans" #false
+            (λ (h g)
+              (if (hand-kokushi? h)
+                  (if (and (rule? 'kokushi-tanki)
+                           (equal? (first (hand-pair h))
+                                   (hand-last-tile h)))
+                      2
+                      1)
+                  0)))
+   (yakuman 'suuankou "four concealed triplets" #false
+            (λ (h g)
+              (let ([tanki-wait (equal? (finished-wait-pattern h) 'tanki)])
+                (if (and (hand-closed? h)
+                         (andmap (λ (m) (not (meld-chii? m))) (hand-melds h))
+                         (or (gamestate-tsumo? g)
+                             tanki-wait))
+                    (if (and (rule? 'suuankou-tanki)
+                             tanki-wait)
+                        2
+                        1)
+                    0))))
+   (yakuman 'daisangen "big three dragons" #true
+            (λ (h g)
+              (if (equal? (length (filter (λ (m) (dragon? (meld-first m)))
+                                          (hand-melds h)))
+                          3)
+                  1
+                  0)))
+   (yakuman 'shousuushi "small four winds" #true
+            (λ (h g)
+              (if (and (wind? (first (hand-pair h)))
+                       (equal? (length (filter (λ (m) (wind? (meld-first m)))
+                                               (hand-melds h)))
+                               3))
+                  1
+                  0)))
+   (yakuman 'daisuushi "big four winds" #true
+            (λ (h g)
+              (if (andmap (λ (m) (wind? (meld-first m)))
+                          (hand-melds h))
+                  (if (rule? 'daisuushi-double)
+                      2
+                      1)
+                  0)))
+   (yakuman 'tsuuiisou "all honors" #true
+            (λ (h g)
+              (if (andmap honor? (hand-tiles h))
+                  1
+                  0)))
+   (yakuman 'chinroutou "all terminals" #true
+            (λ (h g)
+              (if (andmap terminal? (hand-tiles h))
+                  1
+                  0)))
+   (yakuman 'ryuuiisou "all green" #true
+            (λ (h g)
+              (let* ([greens (set "2s" "3s" "4s" "6s" "8s")]
+                     [greens (if (rule? 'ryuuiisou-excl)
+                                 greens
+                                 (set-add greens "6z"))]
+                     [tiles (hand-tiles h)])
+                (if (and (or (not (rule? 'ryuuiisou-req))
+                             (ormap (curry equal? "6z") tiles))
+                         (andmap (curry set-member? greens) tiles))
+                    1
+                    0))))
+   (yakuman 'chuuren "nine gates" #false
+            (λ (h g)
+              (if (and (hand-closed? h)
+                       (equal? (set-count (list->set (map tile-suit (hand-tiles h))))
+                               1)
+                       (letrec ([check-chuuren
+                                 (λ (tiles pattern extra-found)
+                                   (cond
+                                     [(empty? tiles)
+                                      (and extra-found (empty? pattern))]
+                                     [(empty? pattern)
+                                      (if extra-found #false
+                                          (check-chuuren (rest tiles) pattern #true))]
+                                     [else (if (equal? (first tiles) (first pattern))
+                                               (check-chuuren (rest tiles) (rest pattern) extra-found)
+                                               (if extra-found
+                                                   #false
+                                                   (check-chuuren (rest tiles) pattern #true)))]))])
+                         (check-chuuren (map tile-number (hand-tiles h))
+                                        '(1 1 1 2 3 4 5 6 7 8 9 9 9)
+                                        #false)))
+                  (if (and (rule? 'chuuren-double)
+                           (equal? (length (find-tenpai-waits (hand-tiles h)))
+                                   9))
+                      2
+                      1)
+                  0)))
+   (yakuman 'suukantsu "four kans" #true
+            (λ (h g)
+              (if (andmap meld-kan? (hand-melds h))
+                  1
+                  0)))
 
-   (yakuman 'tenhou "heavenly hand" #false (λ (h g) 0))
-   (yakuman 'chiihou "earthly hand" #false (λ (h g) 0))))
+   (yakuman 'tenhou "heavenly hand" #false
+            (λ (h g) (if (and (gamestate-tenhou/chiihou? g)
+                              (equal? (gamestate-seat g)
+                                      (wind 'e)))
+                         1
+                         0)))
+   (yakuman 'chiihou "earthly hand" #false
+            (λ (h g) (if (and (gamestate-tenhou/chiihou? g)
+                              (not (equal? (gamestate-seat g)
+                                           (wind 'e))))
+                         1
+                         0)))))
 
 ; note:
 ;  iipeikou doesn't score with ryanpeikou
 ;  skipping optional yaku like renhou and daisharin
 ;  don't forget nagashi mangan
 ;  double yakuman
+;  sekinin banrai
+;  optional daichiisei would cancel tsuuiisou or add on to it for double yakuman
 
 (define/contract (count-fu h g #:pinfu-check? [pinfu-check #false])
   (->* ((and/c hand? hand-finished?) gamestate?)

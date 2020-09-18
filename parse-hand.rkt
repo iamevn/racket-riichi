@@ -14,9 +14,7 @@
   (-> (or/c handlist? handstring?) (listof hand?))
   (cond
     [(string? h) (make-hands (shorthand->handlist h))]
-    [(equal? 14 (length h))
-     (find-hands h)]
-    [else (raise-argument-error 'make-hands "invalid hand" h)]))
+    [else (find-hands h)]))
 
 (define/contract (find-hands h)
   (-> handlist? (listof hand?))
@@ -146,12 +144,14 @@
     (map test-hand-parse test-hands)))
 
 (define/contract (find-tenpai-waits h)
-  (-> handstring? (listof tile?))
+  (-> (or/c handstring? handlist?) (listof tile?))
   (let* ([all-tiles (flatten (list (map (λ (n) (tile n #\m)) (range 1 10))
                                    (map (λ (n) (tile n #\p)) (range 1 10))
                                    (map (λ (n) (tile n #\s)) (range 1 10))
                                    (map (λ (n) (tile n #\z)) (range 1 8))))]
-         [handlist (shorthand->handlist h)]
+         [handlist (if (handstring? h)
+                       (shorthand->handlist h)
+                       h)]
          [remaining-tiles (filter (λ (t) (< (count ((curry equal?) t) handlist)
                                             4))
                                   all-tiles)])
@@ -216,8 +216,15 @@
                               (and (equal? last-tile (third (meld-tiles m)))
                                    (equal? (tile-number (meld-first m)) 1))))
                    chiis-with-last))
-       'penchan])))
+       'penchan]
+      [(hand-chiitoi? h) 'tanki]
+      [(and (not last-in-pair)
+            (hand-kokushi? h))
+       ; this one is ???, doesn't matter since fu isn't counted but kanchan seems like the best fit
+       'kanchan])))
 
+#;(finished-wait-pattern (make-chiitoi (shorthand->handlist "224466m123123p99s")))
+ 
 (define (check-display-waits h)
   (display h)
   (newline)
@@ -310,12 +317,16 @@
          [all-tiles (append base-tiles
                             (flatten (map meld-tiles call-melds)))]
          [last-tile (or (third split-out)
-                        (last base-tiles))])
-    (recursive-thing (tile-sort all-tiles)
-                     (tile-sort base-tiles)
-                     '()
-                     call-melds
-                     last-tile)))
+                        (last base-tiles))]
+         [chiitoi (if (chiitoi? base-tiles) (make-chiitoi base-tiles) '())]
+         [kokushi (if (kokushi? base-tiles) (make-kokushi base-tiles) '())])
+    (set->list (list->set (flatten (cons chiitoi
+                                         (cons kokushi
+                                               (recursive-thing (tile-sort all-tiles)
+                                                                (tile-sort base-tiles)
+                                                                '()
+                                                                call-melds
+                                                                last-tile))))))))
 
 (define/contract (make-my-notation-hands s)
   (-> my-notation? (listof hand?))
