@@ -33,10 +33,11 @@
          ("123123m7744p897s7p" (rii tsu) riichi)
          ("123123m7744p897s7p" (rii ipp ron) ippatsu)
          ("234m45789p45688s3p" (tsu) pinfu)
+         ("234m34(5)789p45688s" (ron) pinfu)
          ("445566p111234m55z" (tsu) iipeikou)
          ("123123m7744p897s7p" (tsu hai) haitei)
          ("123123m7744p897s7p" (ron hou) houtei)
-         #;("123123m4p897s4p 7777p" (tsu rin) rinshan) ; make-hands can't make kans
+         ("123123m4p897s4p 7777p" (tsu rin) rinshan)
          ("123123m7744p897s7p" (ron cha) chankan)
          ("33344m22256788p4m" (tsu) tanyao)
          ("123p55s66z999p111z5s" (tsu) yakuhai)
@@ -49,7 +50,7 @@
          ("666m777p44s222z123p" (tsu) sanankou)
          ("777m888p33s11777z3s" (ron) sanankou)
          ("456777m5777s777p5s" (ron) sanshoku-doukou)
-         #;("456m22s 6666p9999s5555s" (tsu) sankantsu) ; make-hands can't make kans
+         ("456m22s 66p66 999s9 5555s" (tsu) sankantsu)
          ("1177p33z55m2z44s552z" (ron) chiitoitsu)
          ("1177p33z55m2z44s552z" (tsu) chiitoitsu)
          ("11199m22z999s444z9m" (ron) honroutou)
@@ -61,50 +62,19 @@
 ; TODO: rest of yaku
 ; TODO: negative test cases
 
-
-(define valid-yaku (list->set '(menzen-tsumo
-                                riichi
-                                ippatsu
-                                pinfu
-                                iipeikou
-                                haitei
-                                houtei
-                                rinshan
-                                chankan
-                                tanyao
-                                yakuhai
-                                double-riichi
-                                chanta
-                                sanshoku-doujun
-                                ittsuu
-                                toitoi
-                                sanankou
-                                sanshoku-doukou
-                                sankantsu
-                                chiitoitsu
-                                honroutou
-                                shousangen
-                                honitsu
-                                junchan
-                                ryanpeikou
-                                chinitsu)))
-
-(define (valid-yaku? s) (set-member? valid-yaku s))
-
-(check-true (andmap (λ (yt) (valid-yaku? (third yt))) positive-yaku-test-cases))
-
 (define-check (check-yaku? yl present)
   (let* ([h (first yl)]
          [g (second yl)]
          [y (third yl)]
-         [configurations (make-hands h)]
+         [configurations (make-my-notation-hands h)]
          [found-yaku (map (λ (configuration)
                             (match-yaku configuration g))
                           configurations)]
          [found-ids (map (λ (yl) (yaku-id (first yl)))
                          (append* found-yaku))])
-    (with-check-info (['hands h]
+    (with-check-info (['hand-shorthand h]
                       ['gamestate g]
+                      ['hand-configurations configurations]
                       ['match-yaku-result found-yaku]
                       ['yaku-ids found-ids])
       (if present

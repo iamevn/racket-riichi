@@ -343,7 +343,7 @@
       (let* ([check-melds (count-meld-fu h g)]
              [fu-melds (foldl + 0 (map second check-melds))]
              [fu-wait
-              (let ([wait-pattern (find-simple-wait-patterns h)])
+              (let ([wait-pattern (finished-wait-pattern h)])
                 (cond
                   [(equal? wait-pattern 'ryanmen) 0]
                   [(equal? wait-pattern 'shanpon) 0]

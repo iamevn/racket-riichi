@@ -2,7 +2,8 @@
 (provide make-hands
          find-tenpai-waits
          find-hand-waits
-         find-simple-wait-patterns)
+         finished-wait-pattern
+         make-my-notation-hands)
 
 (require "contracts.rkt")
 (require "tiles.rkt")
@@ -28,26 +29,27 @@
 (define/contract (find-normal-hands h)
   (-> handlist? (listof hand?))
   (let ([hsort (tile-sort-keep-last h)])
-    (recursive-thing hsort hsort '() '())))
+    (recursive-thing hsort hsort '() '() (last hsort))))
 
-(define/contract (recursive-thing orig-tiles tiles found-hands melds) ; return found hands
+(define/contract (recursive-thing orig-tiles tiles found-hands melds last-tile) ; return found hands
   (-> (and/c (listof tile?) tile-sorted-keep-last?)
       (listof tile?)
       (listof hand?)
       (listof meld?)
+      tile?
       (listof hand?))
   (case (length tiles)
     [(0 1 3 4) found-hands] ; impossible for there to be a pair or some melds and a pair
     [(2) (if (tile-pair? tiles)
              ;add a hand and return
-             (cons (hand orig-tiles (meld-sort melds) tiles (last orig-tiles))
+             (cons (hand orig-tiles (meld-sort melds) tiles last-tile)
                    found-hands)
              found-hands)]
     [else
      ;recur on different options for taking chiis or pons
      (let ([pons (find-pons tiles)]
            [chiis (find-chiis tiles)]
-           [recur (λ (m) (recursive-thing orig-tiles (remove-all (meld-tiles m) tiles) found-hands (cons m melds)))])
+           [recur (λ (m) (recursive-thing orig-tiles (remove-all (meld-tiles m) tiles) found-hands (cons m melds) last-tile))])
        (flatten (list (map recur pons)
                       (map recur chiis))))]))
 
@@ -180,7 +182,7 @@
                             [else last-tile]))
                         melds-with-last-tile)))))
 
-(define/contract (find-simple-wait-patterns h)
+(define/contract (finished-wait-pattern h)
   (-> hand? (and/c symbol? (λ (s) (set-member? (set 'ryanmen 'kanchan 'penchan 'tanki 'shanpon) s))))
   (let* ([melds (hand-melds h)]
          [pair-tile (first (hand-pair h))]
@@ -195,7 +197,7 @@
          [chiis-with-last (filter (λ (m) (meld-has? m last-tile)) chiis)]
          [last-in-chii (not (empty? chiis-with-last))])
     (cond
-      [last-in-pon 'shanpon] ;doesn't catch one side of entotsu
+      [last-in-pon 'shanpon]
       [last-in-pair 'tanki]
       [(and last-in-chii
             (ormap (λ (m) (or (and (equal? last-tile (first (meld-tiles m)))
@@ -230,3 +232,94 @@
       (display-hand waits))))
 
 #;(check-display-waits "123123m3334455p")
+
+; parsing special notation with called tiles
+; normal tile notation followed by space separated list of calls
+; calls notated like the following
+; open pon: "2m22" "22m2" "222m"
+; open chii: "2s13" "12s3" "132s"
+; open kan: "6p666" "66p66" "666p6"
+; the position of the suit indicator indicates who dealt the tile (left,middle,right player)
+; closed kan: "6666z"
+; suit indicator at the end
+; last tile in parenthses
+; equivalent:
+;   "123234s555p88(8m)22z"
+;   "123234s555p88(8)m22z"
+;   "123234s555p(8)88m22z"
+;   "(8m)123234s555p88m22z"
+(define/contract (my-notation? s)
+  (-> any/c boolean?)
+  (and (string? s)
+       (<= (count (curry equal? #\() (string->list s)) 1)
+       (<= (count (curry equal? #\)) (string->list s)) 1)
+       (regexp-match?
+        #rx"^(([1-9]+[mps])|([1-7]+z))*( (([1-9]+[mps][1-9]*)|([1-7]+z[1-7]*)))*$"
+        (remove-parens s))))
+
+(define (remove-parens s)
+  (string-replace (string-replace s "(" "")  ")" ""))
+
+(define (find-last-tile s)
+  (if (and (string-contains? s "(")
+           (string-contains? s ")"))
+      (let* ([after-opening-paren (member #\( (string->list s))]
+             [n-in-paren (second after-opening-paren)]
+             [suit-after-opening-paren (first (member (set #\m #\p #\s #\z)
+                                                      after-opening-paren
+                                                      (curry set-member?)))])
+        (string n-in-paren suit-after-opening-paren))
+      #f))
+
+(define/contract (split-notation s)
+  (-> my-notation? (list/c (or/c false? string?) (listof string?) (or/c tile? false?)) #;hand?)
+  (let* ([last-tile-specified (find-last-tile s)]
+         [s (remove-parens s)]
+         [base-match-groups (regexp-match #rx"^(([1-9]+[mps])|([1-7]+z))*" s)]
+         [call-matches-groups (regexp-match* #rx" (([1-9]+[mps][1-9]*)|([1-7]+z[1-7]*))" s)]
+         [base-match (and base-match-groups (first base-match-groups))]
+         [call-matches call-matches-groups])
+    (list base-match call-matches last-tile-specified)))
+
+(define/contract (my-shorthand->handlist s)
+  (-> string? (listof tile?))
+  (cond
+    [(handstring? s) (shorthand->handlist s)]
+    [(regexp-match? #rx"([1-9]+[mps][1-9]*)|([1-7]+z[1-7]*)" s)
+     (let ([suit (first (regexp-match #rx"[mpsz]" s))]
+           [trimmed (string-trim s)])
+       (shorthand->handlist (string-append* (append (string-split trimmed suit) (list suit)))))]
+    [else (raise-argument-error 'my-shorthand->handlist "my shorthand" s)]))
+
+(define/contract (my-shorthand->melds call-strings)
+  (-> (listof my-notation?) any/c #;(listof meld?))
+  (let ([call-tilelists (map my-shorthand->handlist call-strings)]
+        [call-open (map (λ (s) (not (regexp-match? #rx"^ ....[mpsz]$" s))) call-strings)])
+    (map (λ (co) (let ([tilelist (first co)]
+                       [open (second co)])
+                   (meld (tile-sort tilelist) open)))
+         (map list call-tilelists call-open))))
+
+(define/contract (find-my-notation-hands s)
+  (-> my-notation? (listof hand?))
+  (let* ([split-out (split-notation s)]
+         [base-string (first split-out)]
+         [base-tiles (my-shorthand->handlist base-string)]
+         [call-strings (second split-out)]
+         [call-melds (my-shorthand->melds call-strings)]
+         [all-tiles (append base-tiles
+                            (flatten (map meld-tiles call-melds)))]
+         [last-tile (or (third split-out)
+                        (last base-tiles))])
+    (recursive-thing (tile-sort all-tiles)
+                     (tile-sort base-tiles)
+                     '()
+                     call-melds
+                     last-tile)))
+
+(define/contract (make-my-notation-hands s)
+  (-> my-notation? (listof hand?))
+  (set->list (list->set
+              (cond
+                [(handstring? s) (make-hands s)]
+                [else (find-my-notation-hands s)]))))
