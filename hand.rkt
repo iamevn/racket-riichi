@@ -8,9 +8,9 @@
          kokushi?
          hand-kokushi?)
 
-(require "tiles.rkt")
-(require "melds.rkt")
-(require "contracts.rkt")
+(require "tiles.rkt"
+         "melds.rkt"
+         "contracts.rkt")
 
 (struct/contract hand ([tiles (and/c (listof tile?) tile-sorted-keep-last?)]
                        [melds (and/c (listof meld?) meld-sorted?)] ; for kokushi and chiitoi this is empty

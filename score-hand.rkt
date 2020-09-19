@@ -1,10 +1,10 @@
 #lang racket
-(require "hand.rkt")
-(require "score.rkt")
-(require "melds.rkt")
-(require "tiles.rkt")
-(require "contracts.rkt")
-(require "parse-hand.rkt")
+(require "hand.rkt"
+         "score.rkt"
+         "melds.rkt"
+         "tiles.rkt"
+         "contracts.rkt"
+         "parse-hand.rkt")
 
 ; given finished handlist/string find biggest scoring arrangement
 #;(define/contract (score-hand hand)

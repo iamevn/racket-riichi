@@ -14,8 +14,8 @@
          make-kan-meld
          meld-has?)
 
-(require "contracts.rkt")
-(require "tiles.rkt")
+(require "contracts.rkt"
+         "tiles.rkt")
 
 (struct/contract meld ([tiles (and/c (listof tile?)
                                      same-suit?)]

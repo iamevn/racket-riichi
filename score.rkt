@@ -10,12 +10,12 @@
          match-yaku
          match-yakuman)
 
-(require "contracts.rkt")
-(require "tiles.rkt")
-(require "melds.rkt")
-(require "hand.rkt")
-(require "parse-hand.rkt")
-(require "rule-config.rkt")
+(require "contracts.rkt"
+         "tiles.rkt"
+         "melds.rkt"
+         "hand.rkt"
+         "parse-hand.rkt"
+         "rule-config.rkt")
 
 
 ; general game state around a win

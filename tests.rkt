@@ -1,11 +1,11 @@
 #lang racket
-(require rackunit)
-(require "parse-hand.rkt")
-(require "score.rkt")
-(require "contracts.rkt")
-(require "tiles.rkt")
-(require "melds.rkt")
-(require "hand.rkt")
+(require rackunit
+         "parse-hand.rkt"
+         "score.rkt"
+         "contracts.rkt"
+         "tiles.rkt"
+         "melds.rkt"
+         "hand.rkt")
 
 (define/contract (member? v lst)
   (-> any/c list? boolean?)
