@@ -1,17 +1,8 @@
 #lang racket
-; TODO: 0m 0p 0s as red fives
-(require 2htdp/image)
+; TODO: 0m 0p 0s or 5*m 5*p 5*s as red fives
 (require "contracts.rkt")
 
-(provide tile-images
-         tile-back
-         honors
-         manzu
-         pinzu
-         souzu
-         tile->image
-         shorthand->images
-         shorthand->handlist
+(provide shorthand->handlist
          tile-sort
          tile<?
          suit<?
@@ -21,35 +12,8 @@
          tile-next
          tile-prev
          tile-pair?
-         wind)
-
-; load tiles using 2htdp/image
-(define tilepaths
-  (map (λ (basename) (string-append "tiles/" basename ".gif"))
-       (flatten (list "back" "ton" "nan" "sha" "pei" "haku" "hatsu" "chun"
-                      (map (λ (suit)
-                             (map (λ (n)(string-append suit (number->string n))) (range 1 10)))
-                           '("man" "pin" "sou"))))))
-
-(define tile-images
-  (map bitmap/file tilepaths))
-
-
-(define tile-back (first tile-images))
-(define honors (take (cdr tile-images) 7))
-(define manzu (take (drop tile-images 8) 9))
-(define pinzu (take (drop tile-images 17) 9))
-(define souzu (take (drop tile-images 26) 9))
-
-(define/contract (tile->image tile)
-  (-> tile? image?)
-  (let ([suit (tile-suit tile)]
-        [index (sub1 (tile-number tile))])
-    (cond
-      [(equal? suit #\m) (list-ref manzu index)]
-      [(equal? suit #\p) (list-ref pinzu index)]
-      [(equal? suit #\s) (list-ref souzu index)]
-      [(equal? suit #\z) (list-ref honors index)])))
+         wind
+         dragon)
 
 (define/contract (shorthand-expand s)
   (-> handstring? strict-handstring?)
@@ -84,10 +48,6 @@
   (-> handstring? handlist?)
   (map list->string
        (pair-up (string->list (shorthand-expand s)))))
-
-(define/contract (shorthand->images s)
-  (-> handstring? (listof image?))
-  (map tile->image (shorthand->handlist s)))
 
 (define/contract (tile-sort h)
   (-> handlist? handlist?)
@@ -150,8 +110,16 @@
 (define/contract (wind w)
   (-> symbol? wind?)
   (case w
-    [(e east) "1z"]
-    [(s south) "2z"]
-    [(w west) "3z"]
-    [(n north) "4z"]
-    [else (raise-argument-error 'wind "a symbol representing a wind '(e s w n east south west north)" w)]))
+    [(e east ton) "1z"]
+    [(s south nan) "2z"]
+    [(w west sha) "3z"]
+    [(n north pei) "4z"]
+    [else (raise-argument-error 'wind "a symbol representing a wind '(e s w n east south west north ton nan sha pei)" w)]))
+
+(define/contract (dragon d)
+  (-> symbol? dragon?)
+  (case d
+    [(w white haku) "5z"]
+    [(g green hatsu) "6z"]
+    [(r red chun) "7z"]
+    [else (raise-argument-error 'dragon "a symbol representing a dragon '(w g r white green red haku hatsu chun)" d)]))

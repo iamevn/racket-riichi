@@ -54,7 +54,7 @@
   (let* ([h (first yl)]
          [g (second yl)]
          [y (third yl)]
-         [configurations (make-my-notation-hands h)]
+         [configurations (make-call-notation-hands h)]
          [found-yaku (map (λ (configuration)
                             (match-yaku configuration g))
                           configurations)]
@@ -150,7 +150,7 @@
 
 
 (define-check (check-fu h g expected)
-  (let* ([hands (make-my-notation-hands h)]
+  (let* ([hands (make-call-notation-hands h)]
          [found-fu (map (λ (configuration) (count-fu configuration g)) hands)])
     (unless (member? expected found-fu)
       (fail-check))))
@@ -166,7 +166,7 @@
                      ("11227(7s)2233m77p77z" (seat-e round-e ron) 25)))))
 
 (define-check (check-parse-last-tile h expected)
-  (let ([hands (make-my-notation-hands h)])
+  (let ([hands (make-call-notation-hands h)])
     (unless (andmap (compose (curry equal? expected) hand-last-tile) hands)
       (fail-check))))
 

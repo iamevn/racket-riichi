@@ -6,8 +6,7 @@
          chiitoi?
          hand-chiitoi?
          kokushi?
-         hand-kokushi?
-         display-hand)
+         hand-kokushi?)
 
 (require "tiles.rkt")
 (require "melds.rkt")
@@ -33,14 +32,6 @@
   (or (chiitoi? (hand-tiles hand))
       (kokushi? (hand-tiles hand))
       (and (equal? 4 (length (hand-melds hand))))))
-
-
-(define/contract (display-hand tiles)
-  (-> (or/c handstring? hand? handlist?) void?)
-  (cond [(handstring? tiles)
-         (display (shorthand->images tiles))]
-        [(hand? tiles) (display-hand (hand-tiles tiles))]
-        [else (display-hand (apply string-append tiles))]))
 
 ; special yaku
 (define/contract (chiitoi? tiles)
