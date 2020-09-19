@@ -383,7 +383,7 @@
                                         '(1 1 1 2 3 4 5 6 7 8 9 9 9)
                                         #false)))
                   (if (and (rule? 'chuuren-double)
-                           (equal? (length (find-tenpai-waits (hand-tiles h)))
+                           (equal? (length (find-tenpai-waits (hand-tiles h))) ; do this differently
                                    9))
                       2
                       1)
@@ -432,7 +432,7 @@
                                                     (first (hand-pair h))))))]
                      [not-simple? (not (simple? (meld-first m)))]
                      [kan? (meld-kan? m)])
-                 (case (list kan? not-simple? closed?)
+                 (case (list closed? not-simple? kan?)
                    [((#f #f #f)) '(open-simple-triplet 2)]
                    [((#f #f #t)) '(open-simple-quad 8)]
                    [((#f #t #f)) '(open-honor/terminal-triplet 4)]

@@ -11,28 +11,43 @@
   (-> any/c list? boolean?)
   (not (false? (member v lst))))
 
-(define positive-yaku-test-cases
-  (map (λ (l)
-         (let ([h (first l)]
-               [g (second l)]
-               [y (third l)])
-           (list h
-                 (make-gamestate (wind (if (member? 'dealer g)
-                                           'e
-                                           's))
-                                 (wind 'e)
-                                 '("4p")
-                                 #:riichi (member? 'rii g)
-                                 #:tsumo (member? 'tsu g)
-                                 #:ron (member? 'ron g)
-                                 #:ippatsu (member? 'ipp g)
-                                 #:double (member? 'dou g)
-                                 #:haitei (member? 'hai g)
-                                 #:houtei (member? 'hou g)
-                                 #:chankan (member? 'cha g)
-                                 #:rinshan (member? 'rin g)
-                                 #:tenhou/chiihou (member? 'ten g))
-                 y)))
+(define/contract (test-gamestate symbols #:dora [dora-indicators '("4p")])
+  (->* ((listof symbol?))
+       (#:dora (listof tile?))
+       gamestate?)
+  (make-gamestate (wind (cond
+                          [(member? 'seat-e symbols) 'e]
+                          [(member? 'seat-s symbols) 's]
+                          [(member? 'seat-w symbols) 'w]
+                          [(member? 'seat-n symbols) 'n]
+                          [(member? 'dealer symbols) 'e]
+                          [else 's]))
+                  (wind (cond
+                          [(member? 'round-e symbols) 'e]
+                          [(member? 'round-s symbols) 's]
+                          [(member? 'round-w symbols) 'w]
+                          [(member? 'round-n symbols) 'n]
+                          [else 'e]))
+                  dora-indicators
+                  #:riichi (member? 'rii symbols)
+                  #:tsumo (member? 'tsu symbols)
+                  #:ron (member? 'ron symbols)
+                  #:ippatsu (member? 'ipp symbols)
+                  #:double (member? 'dou symbols)
+                  #:haitei (member? 'hai symbols)
+                  #:houtei (member? 'hou symbols)
+                  #:chankan (member? 'cha symbols)
+                  #:rinshan (member? 'rin symbols)
+                  #:tenhou/chiihou (member? 'ten symbols)))
+
+(define/contract (parse-testcase-gamestate tc)
+  (-> (and/c list? (list-length/c 2 #:cmp >=)) (and/c list? (list-length/c 2 #:cmp >=)))
+  (list* (first tc)
+         (test-gamestate (second tc))
+         (drop tc 2)))
+
+(define yaku-present-test-cases
+  (map parse-testcase-gamestate
        '(("123123m7744p897s7p" (rii tsu) menzen-tsumo)
          ("123123m7744p897s7p" (rii tsu) riichi)
          ("123123m7744p897s7p" (rii ipp ron) ippatsu)
@@ -85,7 +100,7 @@
 ; TODO: combination test cases
 ; TODO: count points
 
-(define-check (check-yaku? yl present)
+(define-check (check-yaku yl expected)
   (let* ([h (first yl)]
          [g (second yl)]
          [y (third yl)]
@@ -105,58 +120,59 @@
                       ['hand-configurations configurations]
                       ['match-yaku-result found-yaku]
                       ['yaku-ids found-ids])
-      (if present
+      (if expected
           (unless (member? y found-ids)
             (fail-check))
           (when (member? y found-ids)
             (fail-check))))))
 
 (define score-tests
-  (make-test-suite "Tests for yaku matcher"
+  (make-test-suite "Tests yaku matcher to see if given yaku are present"
                    (map (λ (tc)
                           (test-case (symbol->string (third tc))
-                                     (check-yaku? tc #true)))
-                        positive-yaku-test-cases)))
-
-(define pinfu-test-cases
-  (map (λ (l) (let ([h (first l)]
-                    [g (second l)]
-                    [present (third l)])
-                (list h
-                      (make-gamestate (wind 'e)
-                                      (wind 's)
-                                      '("4p")
-                                      #:riichi (member? 'rii g)
-                                      #:tsumo (member? 'tsu g)
-                                      #:ron (member? 'ron g)
-                                      #:ippatsu (member? 'ipp g)
-                                      #:double (member? 'dou g)
-                                      #:haitei (member? 'hai g)
-                                      #:houtei (member? 'hou g)
-                                      #:chankan (member? 'cha g)
-                                      #:rinshan (member? 'rin g))
-                      present)))
-       '(("234m45789p45688s3p" (tsu) #true)
-         ("234m45789p45688s3p" (ron) #true))))
+                                     (check-yaku tc #true)))
+                        yaku-present-test-cases)))
 
 (define pinfu-tests
   (make-test-suite "Tests for pinfu yaku"
                    (map (λ (tc)
                           (test-case (~a tc)
-                                     (check-yaku? (list (first tc)
-                                                        (second tc)
-                                                        'pinfu)
-                                                  (third tc))))
-                        pinfu-test-cases)))
+                                     (check-yaku (list (first tc)
+                                                       (second tc)
+                                                       'pinfu)
+                                                 (third tc))))
+                        (map parse-testcase-gamestate
+                             '(("234m45789p45688s3p" (tsu) #true)
+                               ("234m45789p45688s3p" (ron) #true))))))
 
-#; (count-fu (hand (tile-sort-keep-last (shorthand->handlist "456m1122z1111s77771z"))
-                   (meld-sort (list (make-chii-meld "4m")
-                                    (make-pon-meld "1z")
-                                    (make-kan-meld "1s")
-                                    (make-kan-meld "7z")))
-                   '("2z" "2z")
-                   "1z")
-             (make-gamestate (wind 's)
-                             (wind 's)
-                             '("3z")
-                             #:ron #true))
+
+(define-check (check-fu h g expected)
+  (let* ([hands (make-my-notation-hands h)]
+         [found-fu (map (λ (configuration) (count-fu configuration g)) hands)])
+    (unless (member? expected found-fu)
+      (fail-check))))
+
+(define fu-tests
+  (make-test-suite "Tests on counting fu in a hand"
+                   (map (λ (tc)
+                          (test-case (~a tc)
+                                     (apply check-fu (parse-testcase-gamestate tc))))
+                        '(("456m11(1)22z 1111s 7777z" (seat-s round-s ron) 110)
+                          ("234s1(1z) 999p9 3333z 1111p" (seat-e round-e tsu) 110)
+                          ("1168(7)s456m789p 77z7" (seat-e round-e ron) 30)
+                          ("11227(7s)2233m77p77z" (seat-e round-e ron) 25)))))
+
+(define-check (check-parse-last-tile h expected)
+  (let ([hands (make-my-notation-hands h)])
+    (unless (andmap (compose (curry equal? expected) hand-last-tile) hands)
+      (fail-check))))
+
+(define last-tile-tests
+  (make-test-suite "Tests on parsing hand notation for last tile"
+                   (map (λ (tc)
+                          (test-case (~a tc)
+                                     (apply check-parse-last-tile tc)))
+                        '(("44556(6)m223344p44s" "6m")
+                          ("19m19p19s12(3)45567z" "3z")
+                          ("123m456p222s333z22s" "2s")
+                          ("12344m555s 1(1p)1 222z" "1p")))))

@@ -81,21 +81,28 @@
 ; last tile in h was the winning tile
 ; melds in hand struct is empty because all pairs
 ; pair for hand struct can be any pair from hand
-(define/contract (make-chiitoi handlist)
-  (-> (and/c handlist? chiitoi?) hand?)
+(define/contract (make-chiitoi handlist [last-tile null])
+  (->* ((and/c handlist? chiitoi?))
+       ((or/c null? tile?))
+       hand?)
   (let* ([hand-sorted (tile-sort handlist)]
-         [wait (last handlist)]
-         [hand-wait-last (append (remove wait hand-sorted) (list wait))])
-    (hand hand-wait-last '() (take hand-sorted 2) wait)))
+         [wait (if (null? last-tile) (last handlist) last-tile)]
+         [hand-wait-last (append (remove wait hand-sorted) (list wait))]
+         [pair #;(take hand-sorted 2)
+               ; let's try making the last tile the pair since that's the wait pattern
+               (make-list 2 wait)])
+    (hand hand-wait-last '() pair wait)))
 
 ; form hand struct for kokushi hand
 ; last tile in h was the winning tile
 ; melds in hand struct is empty because all pairs
 ; pair for hand struct is the paired tile
-(define/contract (make-kokushi handlist)
-  (-> (and/c handlist? kokushi?) hand?)
+(define/contract (make-kokushi handlist [last-tile null])
+  (->* ((and/c handlist? kokushi?))
+       ((or/c null? tile?))
+       hand?)
   (let* ([hand-sorted (tile-sort handlist)]
-         [wait (last handlist)]
+         [wait (if (null? last-tile) (last handlist) last-tile)]
          [hand-wait-last (append (remove wait hand-sorted) (list wait))]
          [pair (letrec ([find-pair
                          (λ (lst)
@@ -132,16 +139,6 @@
     (when (empty? hands) (display "hand not finished")(newline))
     (newline)
     (not (empty? hands))))
-
-(define (test-parse)
-  (let ([test-hands
-         '("123123m445566s77z"
-           "19m119p19s1234567z"
-           #;"34566m34666888s5s"
-           "11122233312344m"
-           #;"11789m12789p789s3p"
-           "12345m666788p333z")])
-    (map test-hand-parse test-hands)))
 
 (define/contract (find-tenpai-waits h)
   (-> (or/c handstring? handlist?) (listof tile?))
@@ -223,23 +220,6 @@
        ; this one is ???, doesn't matter since fu isn't counted but kanchan seems like the best fit
        'kanchan])))
 
-#;(finished-wait-pattern (make-chiitoi (shorthand->handlist "224466m123123p99s")))
- 
-(define (check-display-waits h)
-  (display h)
-  (newline)
-  (display-hand h)
-  (newline)
-  (let ([waits (if (handstring? h)
-                   (find-tenpai-waits h)
-                   (find-hand-waits h))])
-    (unless (empty? waits)
-      (display "Waits:")
-      (newline)
-      (display-hand waits))))
-
-#;(check-display-waits "123123m3334455p")
-
 ; parsing special notation with called tiles
 ; normal tile notation followed by space separated list of calls
 ; calls notated like the following
@@ -318,8 +298,8 @@
                             (flatten (map meld-tiles call-melds)))]
          [last-tile (or (third split-out)
                         (last base-tiles))]
-         [chiitoi (if (chiitoi? base-tiles) (make-chiitoi base-tiles) '())]
-         [kokushi (if (kokushi? base-tiles) (make-kokushi base-tiles) '())])
+         [chiitoi (if (chiitoi? base-tiles) (make-chiitoi base-tiles last-tile) '())]
+         [kokushi (if (kokushi? base-tiles) (make-kokushi base-tiles last-tile) '())])
     (set->list (list->set (flatten (cons chiitoi
                                          (cons kokushi
                                                (recursive-thing (tile-sort all-tiles)
@@ -330,7 +310,4 @@
 
 (define/contract (make-my-notation-hands s)
   (-> my-notation? (listof hand?))
-  (set->list (list->set
-              (cond
-                [(handstring? s) (make-hands s)]
-                [else (find-my-notation-hands s)]))))
+  (set->list (list->set (find-my-notation-hands s))))

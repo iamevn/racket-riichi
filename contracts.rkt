@@ -82,11 +82,11 @@
   (regexp-match-exact? #rx"([1-9][msp]|[1-7]z)*"
                        hand))
 
-(define (list-length/c n)
+(define (list-length/c n #:cmp [cmp equal?])
   (flat-named-contract
-   (string->symbol (string-append "list-length-" (number->string n)))
+   (string->symbol (~a "list-length-" (object-name cmp) "-" (number->string n)))
    (λ (l)
-     (equal? (length l) n))))
+     (cmp (length l) n))))
 
 (define (string-length/c n)
   (flat-named-contract
