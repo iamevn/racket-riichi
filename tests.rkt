@@ -5,7 +5,9 @@
          "contracts.rkt"
          "tiles.rkt"
          "melds.rkt"
-         "hand.rkt")
+         "hand.rkt"
+         "yaku.rkt"
+         "fu.rkt")
 
 (define/contract (member? v lst)
   (-> any/c list? boolean?)

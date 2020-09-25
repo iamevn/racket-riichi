@@ -18,7 +18,9 @@
          tile-number
          remove-all
          count-distinct
-         all-equal?)
+         all-equal?
+         (struct-out gamestate)
+         make-gamestate)
 
 (define (handlist? hand)
   (and (list? hand)
@@ -117,3 +119,40 @@
 (define/contract (all-equal? lst)
   (-> list? boolean?)
   (equal? 1 (count-distinct lst)))
+
+
+; general game state around a win
+(struct/contract gamestate ([seat wind?] ; what seat play is in
+                            [round wind?] ; what round it is
+                            [dora-indicators (listof tile?)] ; list of dora indicators
+                            [tsumo? boolean?] ; win by self draw?
+                            [ron? boolean?] ; win by discard?
+                            [riichi? boolean?] ; win after riichi
+                            [double? boolean?] ; win after riichi on the first turn
+                            [ippatsu? boolean?] ; win in turn after riichi
+                            [haitei? boolean?] ; win on last draw?
+                            [houtei? boolean?] ; win on last discard?
+                            [chankan? boolean?] ; win by robbing kan?
+                            [rinshan? boolean?] ; win on deadwall draw after kan?
+                            [tenhou/chiihou? boolean?]) ; win on first draw
+                 #:transparent)
+
+(define (make-gamestate seat
+                        round
+                        dora-indicators
+                        #:tsumo [tsumo #false]
+                        #:ron [ron #false]
+                        #:riichi [riichi #false]
+                        #:double [double #false]
+                        #:ippatsu [ippatsu #false]
+                        #:haitei [haitei #false]
+                        #:houtei [houtei #false]
+                        #:chankan [chankan #false]
+                        #:rinshan [rinshan #false]
+                        #:tenhou/chiihou [tenhou/chiihou #false])
+  (if (xor tsumo ron)
+      (gamestate seat round dora-indicators tsumo ron riichi double
+                 ippatsu haitei houtei chankan rinshan tenhou/chiihou)
+      (raise-argument-error 'make-gamestate
+                            "tsumo or ron, not both"
+                            (~a "#:tsumo " tsumo " #:ron " ron))))
