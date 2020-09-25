@@ -137,7 +137,11 @@
                      ("11123456789993m" (tsu) chuuren)
                      ("4(4z) 66p66 222m2 7777z 444s4" (tsu) suukantsu)
                      ("123123m7744p897s7p" (tsu ten dealer) tenhou)
-                     ("123123m7744p897s7p" (tsu ten) chiihou)))))
+                     ("123123m7744p897s7p" (tsu ten) chiihou)
+                     ; negative test cases
+                     ("11227(7s)2233m77p77z" (seat-e round-e ron) suuankou #false)
+                     ("11227(7s)2233m77p77z" (seat-e round-e ron) daisuushi #false)
+                     ("11227(7s)2233m77p77z" (seat-e round-e ron) suukantsu #false)))))
 
 (define pinfu-tests
   (test-suite "Pinfu hands"
@@ -151,16 +155,27 @@
                      ("234m45789p45688s3p" (ron) #true)))))
 
 
-(define-check (check-fu h g expected)
+(define-check (check-fu-raw h g expected)
   (let* ([hands (make-call-notation-hands h)]
          [found-fu (map (λ (configuration) (count-fu configuration g)) hands)])
     (unless (member? expected found-fu)
       (fail-check))))
 
+(define-check (check-fu h g expected)
+  (let* ([hands (make-call-notation-hands h)]
+         [scorings (map (λ (configuration) (make-scoring configuration g)) hands)]
+         [found-fu (map scoring-fu scorings)])
+    (with-check-info (['hands hands]
+                      ['scorings scorings]
+                      ['found-fu found-fu])
+      (unless (member? expected found-fu)
+        (fail-check)))))
+
 (define fu-tests
   (test-suite "Fu count tests"
               (map (λ (tc)
                      (test-case (~a tc)
+                                (apply check-fu-raw (build-testcase-gamestate tc))
                                 (apply check-fu (build-testcase-gamestate tc))))
                    '(("456m11(1)22z 1111s 7777z" (seat-s round-s ron) 110)
                      ("234s1(1z) 999p9 3333z 1111p" (seat-e round-e tsu) 110)
@@ -184,11 +199,31 @@
                      ("12344m555s 1(1p)1 222z" "1p")
                      ("1(2)3456789m22255z" "2m")))))
 
+(define-check (check-han h g expected)
+  (let* ([hands (make-call-notation-hands h)]
+         [scorings (map (λ (configuration) (make-scoring configuration g)) hands)]
+         [found-han (map scoring-han scorings)])
+    (unless (member? expected found-han)
+      (fail-check))))
+
+(define han-tests
+  (test-suite "Han count tests"
+              (map (λ (tc)
+                     (test-case (~a tc)
+                                (let ([h (first tc)]
+                                      [g (test-gamestate (second tc))]
+                                      [expected (third tc)])
+                                  (check-han h g expected))))
+                   '(("444(7)89m555p234s22z" (rii tsu round-e seat-e) 2)
+                     ("345p4(4)m 5m555 3s333 44s44" (tsu round-e seat-e) 3)
+                     ("6662(2)m555p444s 77p7" (tsu round-e seat-e) 5)))))
+
 (define-test-suite full-suite
   last-tile-tests
   fu-tests
   pinfu-tests
-  yaku-present-tests)
+  yaku-present-tests
+  han-tests)
 
 ; (require rackunit/gui) (test/gui full-suite)
 (require rackunit/text-ui) (run-tests full-suite)

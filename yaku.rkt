@@ -257,6 +257,7 @@
             (λ (h g)
               (let ([tanki-wait (equal? (finished-wait-pattern h) 'tanki)])
                 (if (and (hand-closed? h)
+                         (not (empty? (hand-melds h)))
                          (andmap (λ (m) (not (meld-chii? m))) (hand-melds h))
                          (or (gamestate-tsumo? g)
                              tanki-wait))
@@ -282,8 +283,9 @@
                   0)))
    (yakuman 'daisuushi "big four winds" #true
             (λ (h g)
-              (if (andmap (λ (m) (wind? (meld-first m)))
-                          (hand-melds h))
+              (if (and (not (empty? (hand-melds h)))
+                       (andmap (λ (m) (wind? (meld-first m)))
+                               (hand-melds h)))
                   (if (rule? 'daisuushi-double)
                       2
                       1)
@@ -339,7 +341,8 @@
                   0)))
    (yakuman 'suukantsu "four kans" #true
             (λ (h g)
-              (if (andmap meld-kan? (hand-melds h))
+              (if (and (not (empty? (hand-melds h)))
+                       (andmap meld-kan? (hand-melds h)))
                   1
                   0)))
 
