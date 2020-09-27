@@ -180,7 +180,9 @@
                    '(("456m11(1)22z 1111s 7777z" (seat-s round-s ron) 110)
                      ("234s1(1z) 999p9 3333z 1111p" (seat-e round-e tsu) 110)
                      ("1168(7)s456m789p 77z7" (seat-e round-e ron) 30)
-                     ("11227(7s)2233m77p77z" (seat-e round-e ron) 25)))))
+                     ("11227(7s)2233m77p77z" (seat-e round-e ron) 25)
+                     ("34534522m45645(6)p" (seat-e round-e tsu) 20)
+                     ("34534522m45645(6)p" (seat-e round-e tsu) 25)))))
 
 (define-check (check-parse-last-tile h expected)
   (let ([hands (make-call-notation-hands h)])

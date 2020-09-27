@@ -48,7 +48,11 @@
                       0)))
    (yaku 'pinfu "no fu" 0 1
          (λ (h g) (if (and (hand-closed? h)
-                           (equal? 0 (count-fu h g #:pinfu-check? #true)))
+                           (let ([fu (count-fu h g)])
+                             (or (and (gamestate-tsumo? g)
+                                      (equal? 20 fu))
+                                 (and (gamestate-ron? g)
+                                      (equal? 30 fu)))))
                       1
                       0)))
    (yaku 'iipeikou "double sequences" 0 1

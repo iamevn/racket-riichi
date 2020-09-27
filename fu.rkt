@@ -7,10 +7,8 @@
          "hand.rkt"
          "parse-hand.rkt")
 
-(define/contract (count-fu h g #:pinfu-check? [pinfu-check #false])
-  (->* ((and/c hand? hand-finished?) gamestate?)
-       (#:pinfu-check? boolean?)
-       number?)
+(define/contract (count-fu h g)
+  (-> (and/c hand? hand-finished?) gamestate? number?)
   (define (round-up-to-10 n)
     (* 10 (ceiling (/ n 10))))
   (define (count-meld-fu h g)
@@ -56,11 +54,12 @@
                        [(and (hand-closed? h)
                              (gamestate-ron? g))
                         10]
+                       [(and (hand-closed? h)
+                             (gamestate-tsumo? g)
+                             (zero? fu-melds)
+                             (zero? fu-wait)
+                             (zero? fu-pair))
+                        0]
                        [(gamestate-tsumo? g) 2]
                        [else 0])])
-        (if (and pinfu-check
-                 (zero? fu-melds)
-                 (zero? fu-wait)
-                 (zero? fu-pair))
-            0
-            (round-up-to-10 (+ 20 fu-melds fu-wait fu-pair fu-end))))))
+        (round-up-to-10 (+ 20 fu-melds fu-wait fu-pair fu-end)))))
