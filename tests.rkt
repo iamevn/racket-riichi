@@ -13,39 +13,10 @@
   (-> any/c list? boolean?)
   (not (false? (member v lst))))
 
-(define/contract (test-gamestate symbols #:dora [dora-indicators '("4p")])
-  (->* ((listof symbol?))
-       (#:dora (listof tile?))
-       gamestate?)
-  (make-gamestate (wind (cond
-                          [(member? 'seat-e symbols) 'e]
-                          [(member? 'seat-s symbols) 's]
-                          [(member? 'seat-w symbols) 'w]
-                          [(member? 'seat-n symbols) 'n]
-                          [(member? 'dealer symbols) 'e]
-                          [else 's]))
-                  (wind (cond
-                          [(member? 'round-e symbols) 'e]
-                          [(member? 'round-s symbols) 's]
-                          [(member? 'round-w symbols) 'w]
-                          [(member? 'round-n symbols) 'n]
-                          [else 'e]))
-                  dora-indicators
-                  #:riichi (member? 'rii symbols)
-                  #:tsumo (member? 'tsu symbols)
-                  #:ron (member? 'ron symbols)
-                  #:ippatsu (member? 'ipp symbols)
-                  #:double (member? 'dou symbols)
-                  #:haitei (member? 'hai symbols)
-                  #:houtei (member? 'hou symbols)
-                  #:chankan (member? 'cha symbols)
-                  #:rinshan (member? 'rin symbols)
-                  #:tenhou/chiihou (member? 'ten symbols)))
-
 (define/contract (build-testcase-gamestate tc)
   (-> (and/c list? (list-length/c 2 #:cmp >=)) (and/c list? (list-length/c 2 #:cmp >=)))
   (list* (first tc)
-         (test-gamestate (second tc))
+         (gamestate-shorthand (second tc))
          (drop tc 2)))
 
 ; TODO: negative test cases
@@ -80,7 +51,7 @@
 
 (define (build-yaku-test-case testspec)
   (let ([h (first testspec)]
-        [g (test-gamestate (second testspec))]
+        [g (gamestate-shorthand (second testspec))]
         [y (third testspec)]
         [expected (if (>= (length testspec) 4) (fourth testspec) #true)])
     (test-case (symbol->string y)
@@ -148,7 +119,7 @@
               (map (λ (tc)
                      (test-case (~a tc)
                                 (let ([h (first tc)]
-                                      [g (test-gamestate (second tc))]
+                                      [g (gamestate-shorthand (second tc))]
                                       [expected (third tc)])
                                   (check-yaku (list h g 'pinfu) expected))))
                    '(("234m45789p45688s3p" (tsu) #true)
@@ -215,7 +186,7 @@
               (map (λ (tc)
                      (test-case (~a tc)
                                 (let ([h (first tc)]
-                                      [g (test-gamestate (second tc))]
+                                      [g (gamestate-shorthand (second tc))]
                                       [expected (third tc)])
                                   (check-han h g expected))))
                    '(("444(7)89m555p234s22z" (rii tsu round-e seat-e) 2)

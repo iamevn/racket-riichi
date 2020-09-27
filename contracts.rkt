@@ -19,8 +19,11 @@
          remove-all
          count-distinct
          all-equal?
+         member?
+         one-member?
          (struct-out gamestate)
-         make-gamestate)
+         make-gamestate
+         gamestate-shorthand)
 
 (define (handlist? hand)
   (and (list? hand)
@@ -56,13 +59,13 @@
   (-> tile? boolean?)
   (and (honor? tile)
        (set-member? (set 5 6 7)
-                   (tile-number tile))))
+                    (tile-number tile))))
 
 (define/contract (wind? tile)
   (-> tile? boolean?)
   (and (honor? tile)
        (set-member? (set 1 2 3 4)
-                   (tile-number tile))))
+                    (tile-number tile))))
 
 (define/contract (terminal? tile)
   (-> tile? boolean?)
@@ -156,3 +159,40 @@
       (raise-argument-error 'make-gamestate
                             "tsumo or ron, not both"
                             (~a "#:tsumo " tsumo " #:ron " ron))))
+
+(define/contract (member? v lst)
+  (-> any/c list? boolean?)
+  (not (false? (member v lst))))
+
+(define (one-member? vs lst)
+  (ormap (curryr member? lst) vs))
+
+(define/contract (gamestate-shorthand symbols #:dora [dora-indicators '("4p")])
+  (->* ((listof symbol?))
+       (#:dora (listof tile?))
+       gamestate?)
+  (make-gamestate (cond
+                    [(member? 'seat-e symbols) "1z"]
+                    [(member? 'seat-s symbols) "2z"]
+                    [(member? 'seat-w symbols) "3z"]
+                    [(member? 'seat-n symbols) "4z"]
+                    [(member? 'dealer symbols) "1z"]
+                    [else "2z"])
+                  (cond
+                    [(member? 'round-e symbols) "1z"]
+                    [(member? 'round-s symbols) "2z"]
+                    [(member? 'round-w symbols) "3z"]
+                    [(member? 'round-n symbols) "4z"]
+                    [else "1z"])
+                  dora-indicators
+                  #:riichi (one-member? '(rii riichi) symbols)
+                  #:tsumo (one-member? '(tsu tsumo) symbols)
+                  #:ron (one-member? '(ron) symbols)
+                  #:ippatsu (one-member? '(ipp ippatsu) symbols)
+                  #:double (one-member? '(dou double) symbols)
+                  #:haitei (one-member? '(hai haitei) symbols)
+                  #:houtei (one-member? '(hou houtei) symbols)
+                  #:chankan (one-member? '(cha chankan) symbols)
+                  #:rinshan (one-member? '(rin rinshan) symbols)
+                  #:tenhou/chiihou (one-member? '(ten tenhou chi chiihou) symbols)))
+
