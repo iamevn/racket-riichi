@@ -114,4 +114,11 @@
 
 (define/contract (total-payment payment)
   (-> (listof (list/c number? symbol?)) number?)
-  (foldl + 0 (map first payment)))
+  (foldl + 0 (map (λ (p) (let ([points (first p)]
+                               [target (second p)])
+                           (case target
+                             [(all) (* 3 points)]
+                             [(discarding-player) points]
+                             [(dealer) points]
+                             [(non-dealer) (* 2 points)])))
+                  payment)))
