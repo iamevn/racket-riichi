@@ -1,8 +1,6 @@
 #lang racket
 (require "hand.rkt"
          "score.rkt"
-         "melds.rkt"
-         "tiles.rkt"
          "contracts.rkt"
          "parse-hand.rkt"
          "call-notation.rkt"

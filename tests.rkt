@@ -3,8 +3,6 @@
          "parse-hand.rkt"
          "score.rkt"
          "contracts.rkt"
-         "tiles.rkt"
-         "melds.rkt"
          "hand.rkt"
          "yaku.rkt"
          "fu.rkt")

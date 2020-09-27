@@ -7,8 +7,7 @@
 
 (require "contracts.rkt"
          "tiles.rkt"
-         "melds.rkt"
-         "hand.rkt")
+         "melds.rkt")
 
 ; parsing special notation with called tiles
 ; normal tile notation followed by space separated list of calls

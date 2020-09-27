@@ -9,10 +9,7 @@
          total-payment)
 
 (require "contracts.rkt"
-         "tiles.rkt"
-         "melds.rkt"
          "hand.rkt"
-         "parse-hand.rkt"
          "rule-config.rkt"
          "yaku.rkt"
          "fu.rkt")
