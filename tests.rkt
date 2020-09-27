@@ -204,7 +204,9 @@
          [scorings (map (λ (configuration) (make-scoring configuration g)) hands)]
          [found-han (map scoring-han scorings)])
     (unless (member? expected found-han)
-      (fail-check))))
+      (fail-check (~a "Unable to find scoring with " expected " han. Found: " found-han)))
+    (unless (empty? (filter (curry < expected) found-han))
+      (fail-check (~a expected " is not biggest scoring. Found scorings with han: " found-han)))))
 
 (define han-tests
   (test-suite "Han count tests"
@@ -216,7 +218,8 @@
                                   (check-han h g expected))))
                    '(("444(7)89m555p234s22z" (rii tsu round-e seat-e) 2)
                      ("345p4(4)m 5m555 3s333 44s44" (tsu round-e seat-e) 3)
-                     ("6662(2)m555p444s 77p7" (tsu round-e seat-e) 5)))))
+                     ("6662(2)m555p444s 77p7" (tsu round-e seat-e) 5)
+                     ("19p19s19m1234(4)567z" (ron) 0)))))
 
 (define-test-suite full-suite
   last-tile-tests
