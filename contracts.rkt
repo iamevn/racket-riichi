@@ -21,6 +21,8 @@
          all-equal?
          member?
          one-member?
+         (struct-out payment)
+         (struct-out short-yaku)
          (struct-out gamestate)
          make-gamestate
          gamestate-shorthand)
@@ -86,6 +88,9 @@
 (define (strict-handstring? hand)
   (regexp-match-exact? #rx"([1-9][msp]|[1-7]z)*"
                        hand))
+
+(struct/contract short-yaku ([id symbol?] [value number?]) #:transparent)
+(struct/contract payment ([amount number?] [target symbol?]) #:transparent)
 
 (define (list-length/c n #:cmp [cmp equal?])
   (flat-named-contract

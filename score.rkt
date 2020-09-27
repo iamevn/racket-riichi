@@ -113,9 +113,13 @@
        (list (list (round-up-to-100 (* basepoints 4)) 'discarding-player))])))
 
 (define/contract (total-payment payment)
-  (-> (listof (list/c number? symbol?)) number?)
-  (foldl + 0 (map (λ (p) (let ([points (first p)]
-                               [target (second p)])
+  (-> (listof (or/c payment? (list/c number? symbol?))) number?)
+  (foldl + 0 (map (λ (p) (let ([points (if (payment? p)
+                                           (payment-amount p)
+                                           (first p))]
+                               [target (if (payment? p)
+                                           (payment-target p)
+                                           (second p))])
                            (case target
                              [(all) (* 3 points)]
                              [(discarding-player) points]
