@@ -334,8 +334,12 @@
                                         '(1 1 1 2 3 4 5 6 7 8 9 9 9)
                                         #false)))
                   (if (and (rule? 'chuuren-double)
-                           (equal? (length (find-tenpai-waits (hand-tiles h))) ; do this differently
-                                   9))
+                           (let* ([t (hand-last-tile h)]
+                                  [c (count (curry equal? t) (hand-tiles h))])
+                             (if (or (equal? (tile-number t) 1)
+                                     (equal? (tile-number t) 9))
+                                 (equal? c 4)
+                                 (equal? c 2))))
                       2
                       1)
                   0)))
