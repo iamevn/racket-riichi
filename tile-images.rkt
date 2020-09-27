@@ -51,8 +51,36 @@
 
 
 (define/contract (display-hand tiles)
-  (-> (or/c handstring? hand? handlist?) void?)
+  (-> (or/c handstring? call-notation? hand? handlist?) void?)
   (cond [(handstring? tiles)
          (display (shorthand->images tiles))]
         [(hand? tiles) (display-hand (hand-tiles tiles))] ; actually show melds
         [else (display-hand (apply string-append tiles))]))
+
+
+(define/contract (hand->image h)
+  (-> hand? image?)
+  tile-back)
+
+(define/contract (meld->image m)
+  (-> meld? image?)
+  (let ([images (map tile->image (meld-tiles m))])
+    (cond
+    [(and (meld-kan? m)
+          (meld-closed? m))
+     (beside/align "bottom"
+                   tile-back
+                   (above (rotate -90 (second images))
+                          (rotate -90 (third images)))
+                   tile-back)]
+    ; how to pick sideways tile
+    [(and (meld-kan? m)
+          (meld-open? m))
+     (beside/align (first images)
+                   (second images)
+                   (third images)
+                   (fourth images))]
+    [(meld-chii? m)
+     (apply beside images)]
+    [(meld-pon? m)
+     (apply beside images)])))
