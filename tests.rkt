@@ -221,12 +221,37 @@
                      ("6662(2)m555p444s 77p7" (tsu round-e seat-e) 5)
                      ("19p19s19m1234(4)567z" (ron) 0)))))
 
+(define-check (check-base-score s expected)
+  (let ([score (count-basepoints s)])
+    (unless (equal? score expected)
+      (fail-check (~a "Expected score of " expected ", got: " score)))))
+
+(define (make-dummy-yaku-scoring value is-yakuman)
+  (if is-yakuman
+      (list (yakuman 'dummy-yakuman "yakuman for testing" #true (λ (h g) value)) value)
+      (list (yaku 'dummy-yaku "yaku for testing" value value (λ (h g) value)) value)))
+(define base-score-tests
+  (test-suite "Base score tests"
+              (map (λ (tc)
+                     (test-case (~a tc)
+                                (let* ([han (first tc)]
+                                       [fu (second tc)]
+                                       [yl (map (curry apply make-dummy-yaku-scoring) (third tc))]
+                                       [expected (fourth tc)])
+                                  (check-base-score (scoring han fu yl) expected))))
+                   '((30 3 ((2 #f)) (960 basic))
+                     (10 2 ((1 #t)) (8000 yakuman))
+                     (10 2 ((2 #t)) (16000 yakuman))
+                     (10 2 ((1 #t) (2 #t)) (24000 yakuman))))))
+
+
 (define-test-suite full-suite
   last-tile-tests
   fu-tests
   pinfu-tests
   yaku-present-tests
-  han-tests)
+  han-tests
+  base-score-tests)
 
 ; (require rackunit/gui) (test/gui full-suite)
 (require rackunit/text-ui) (run-tests full-suite)

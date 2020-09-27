@@ -1,10 +1,12 @@
 #lang racket
 
 (provide (struct-out scoring)
-         count-points
+         count-basepoints
          match-yaku
          match-yakuman
-         make-scoring)
+         make-scoring
+         count-payment
+         total-payment)
 
 (require "contracts.rkt"
          "tiles.rkt"
@@ -21,9 +23,9 @@
                                       (listof (list/c yakuman? number?)))]) #:transparent)
 
 (define (scoring-yakuman? s)
-  (if (and (scoring? s) (not (empty? (scoring-yaku s))))
-      ((listof (yakuman? number?)) (scoring-yaku s))
-      #false))
+  (and (scoring? s)
+       (not (empty? (scoring-yaku s)))
+       ((listof (yakuman? number?)) (scoring-yaku s))))
 
 (define (scoring-basepoints score)
   (* (scoring-fu score) (expt 2 (+ 2 (scoring-han score)))))
@@ -58,11 +60,58 @@
                  (sum-han y)
                  y))))
 
-; given hand and gamestate, count basepoints
-(define/contract (count-basepoints h gs)
-  (-> (and/c hand? hand-finished?) gamestate? number?)
-  0)
+(define/contract (count-basepoints s)
+  (-> scoring? (list/c number? symbol?))
+  (let ([han (scoring-han s)]
+        [fu (scoring-fu s)]
+        [yakus (scoring-yaku s)])
+    (cond
+      [(empty? yaku) (raise-argument-error 'score-check "hand with yaku" s)]
+      [((listof (list/c yakuman? number?)) yakus)
+       (let ([n (foldl + 0 (map second yakus))])
+         `(,(* n 8000) yakuman))]
+      [(and (rule? 'kazoe-yakuman)
+            (>= han 13))
+       '(8000 kazoe-yakuman)]
+      [(>= han 11)
+       '(6000 sanbaiman)]
+      [(>= han 8)
+       '(4000 baiman)]
+      [(>= han 6)
+       '(3000 haneman)]
+      [(equal? han 5)
+       '(2000 mangan)]
+      [(>= han 1)
+       (let ([pts (* fu (expt 2 (+ 2 han)))])
+         (if (or (>= pts 2000)
+                 (and (rule? 'kiriage-mangan)
+                      (>= pts 1920)))
+             '(2000 mangan)
+             `(,pts basic)))]
+      [else (raise-argument-error 'score-check
+                                  "yakuman or non-yakuman with han"
+                                  s)])))
 
-(define/contract (count-points h gs)
-  (-> (and/c hand? hand-finished?) gamestate? (listof (number? symbol?))) ; make a target contract
-  '())
+; given hand and gamestate, count payment
+(define/contract (count-payment basepoints gs)
+  (-> number? gamestate? (listof (list/c number? symbol?)))
+  (define (round-up-to-100 n)
+    (* 100 (ceiling (/ n 100))))
+  (let ([dealer (equal? (gamestate-seat gs) "1z")]
+        [non-dealer (not (equal? (gamestate-seat gs) "1z"))]
+        [tsumo (gamestate-tsumo? gs)]
+        [ron (gamestate-ron? gs)])
+    (cond
+      [(and dealer tsumo)
+       (list (list (round-up-to-100 (* basepoints 2)) 'all))]
+      [(and dealer ron)
+       (list (list (round-up-to-100 (* basepoints 6)) 'discarding-player))]
+      [(and non-dealer tsumo)
+       (list (list (round-up-to-100 (* basepoints 2)) 'dealer)
+             (list basepoints 'non-dealer))]
+      [(and non-dealer ron)
+       (list (list (round-up-to-100 (* basepoints 4)) 'discarding-player))])))
+
+(define/contract (total-payment payment)
+  (-> (listof (list/c number? symbol?)) number?)
+  (foldl + 0 (map first payment)))
