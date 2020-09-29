@@ -47,7 +47,9 @@
 
 (define r '()) ; for inspecting requests in repl
 (define (route request)
-  (set! r request) ; for inspecting requests in repl
+  (unless (equal? (path/param-path (first (url-path (request-uri request))))
+                  "favicon.ico") ; skip caching favicon request
+      (set! r request)) ; for inspecting requests in repl
   (let* ([uri (request-uri request)]
          [path (url-path uri)]
          [first-path (if (zero? (length path))
