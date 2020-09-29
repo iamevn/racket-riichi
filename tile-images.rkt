@@ -14,7 +14,9 @@
          pinzu
          souzu
          tile->image
-         shorthand->images)
+         shorthand->images
+         hand->image
+         meld->image)
 
 ; load tiles using 2htdp/image
 (define tilepaths
@@ -33,6 +35,10 @@
 (define manzu (take (drop tile-images 8) 9))
 (define pinzu (take (drop tile-images 17) 9))
 (define souzu (take (drop tile-images 26) 9))
+(define spacer
+  (let ([height (image-height tile-back)]
+        [width (* 0.25 (image-width tile-back))])
+    (rectangle width height 0 'transparent)))
 
 (define/contract (tile->image tile)
   (-> tile? image?)
@@ -57,30 +63,35 @@
         [(hand? tiles) (display-hand (hand-tiles tiles))] ; actually show melds
         [else (display-hand (apply string-append tiles))]))
 
-
 (define/contract (hand->image h)
   (-> hand? image?)
-  tile-back)
+  (let* ([m (hand-melds h)])
+    (if (empty? m)
+        (apply (curry beside/align "bottom")
+               (map tile->image (hand-tiles h)))
+        (apply (curry beside/align "bottom")
+               (add-between (append (map meld->image m) (list (apply beside (map tile->image (hand-pair h)))))
+                            spacer)))))
 
 (define/contract (meld->image m)
   (-> meld? image?)
   (let ([images (map tile->image (meld-tiles m))])
     (cond
-    [(and (meld-kan? m)
-          (meld-closed? m))
-     (beside/align "bottom"
-                   tile-back
-                   (above (rotate -90 (second images))
-                          (rotate -90 (third images)))
-                   tile-back)]
-    ; how to pick sideways tile
-    [(and (meld-kan? m)
-          (meld-open? m))
-     (beside/align (first images)
-                   (second images)
-                   (third images)
-                   (fourth images))]
-    [(meld-chii? m)
-     (apply beside images)]
-    [(meld-pon? m)
-     (apply beside images)])))
+      [(and (meld-kan? m)
+            (meld-closed? m))
+       (beside/align "bottom"
+                     tile-back
+                     (above (rotate -90 (second images))
+                            (rotate -90 (third images)))
+                     tile-back)]
+      ; how to pick sideways tile
+      [(and (meld-kan? m)
+            (meld-open? m))
+       (beside/align (first images)
+                     (second images)
+                     (third images)
+                     (fourth images))]
+      [(meld-chii? m)
+       (apply beside images)]
+      [(meld-pon? m)
+       (apply beside images)])))
