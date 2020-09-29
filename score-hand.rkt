@@ -4,7 +4,14 @@
          "contracts.rkt"
          "parse-hand.rkt"
          "call-notation.rkt"
-         "yaku.rkt")
+         "yaku.rkt"
+         "tile-images.rkt")
+
+(provide (struct-out finished)
+         pstring-finished
+         list-score-hand
+         print-score-hand
+         score-hand)
 
 (struct/contract finished ([han number?]
                            [fu number?]
@@ -12,30 +19,6 @@
                            [type symbol?]
                            [yaku (listof short-yaku?)]
                            [hand hand?]) #:transparent)
-
-(define/contract (pprint-finished f)
-  (-> finished? void?)
-  (display (pstring-finished f)))
-
-(define/contract (pstring-finished f)
-  (-> finished? string?)
-  (~a (finished-han f) " han / " (finished-fu f) " fu"
-      (if (equal? (finished-type f) 'basic)
-          ""
-          (~a ": " (finished-type f)))
-      "\n"
-      (string-join (map (λ (p) (~a (payment-amount p) " from " (payment-target p) "\n"))
-                        (finished-payment f))
-                   "")
-      "Yaku:\n"
-      (string-join (map (λ (y) (~a (short-yaku-id y) ": " (short-yaku-value y) "\n"))
-                        (finished-yaku f))
-                   "")))
-
-(define (print-score-hand hsh gsh)
-  (for-each display (add-between (map pstring-finished
-                                      (score-hand hsh (gamestate-shorthand gsh)))
-                                 "\n")))
 
 ; given finished handlist/string find biggest scoring arrangement
 (define/contract (score-hand h gs)
@@ -66,5 +49,38 @@
                                        (scoring-yaku s))
                                   h)))
                sorted)))))
+
+(define (pprint-finished f [out (current-output-port)])
+  (display (pstring-finished f) out))
+
+(define/contract (pstring-finished f)
+  (-> finished? string?)
+  (~a (finished-han f) " han / " (finished-fu f) " fu"
+      (if (equal? (finished-type f) 'basic)
+          ""
+          (~a ": " (finished-type f)))
+      "\n"
+      (string-join (map (λ (p) (~a (payment-amount p) " from " (payment-target p) "\n"))
+                        (finished-payment f))
+                   "")
+      "Yaku:\n"
+      (string-join (map (λ (y) (~a (short-yaku-id y) ": " (short-yaku-value y) "\n"))
+                        (finished-yaku f))
+                   "")))
+
+(define (list-score-hand hsh gsh)
+  (map (λ (f)
+         (list
+          (hand->image (finished-hand f))
+          (pstring-finished f)))
+       (score-hand hsh (gamestate-shorthand gsh))))
+
+(define (print-score-hand hsh gsh [out (current-output-port)])
+  (for-each (λ (l)
+              (newline out)
+              (display (first l) out)
+              (newline out)
+              (display (second l) out))
+            (list-score-hand hsh gsh)))
 
 ; (print-score-hand "22334455m44556(6)p" '(seat-s round-e tsumo))
