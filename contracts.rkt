@@ -209,8 +209,8 @@
 
 (define/contract (gamestate->string g)
   (-> gamestate? string?)
-  (let* ([round "east"]
-         [seat "south"])
+  (let* ([round (wind-name (gamestate-round g))]
+         [seat (wind-name (gamestate-seat g))])
     (string-join
      `(,(~a round " round")
        ,(~a seat " seat")
@@ -232,8 +232,10 @@
                                                 (gamestate-tenhou/chiihou? g))))))))
      ", ")))
 
-  
-
-
-
-
+(define/contract (wind-name t)
+  (-> wind? string?)
+  (case t
+    [("1z") "east"]
+    [("2z") "south"]
+    [("3z") "west"]
+    [("4z") "north"]))
