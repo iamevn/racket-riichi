@@ -44,7 +44,9 @@
                                   (scoring-fu s)
                                   (map (curry apply payment) p)
                                   t
-                                  (map (λ (y) (short-yaku (yaku-id (first y))
+                                  (map (λ (y) (short-yaku (if (yaku? (first y))
+                                                              (yaku-id (first y))
+                                                              (yakuman-id (first y)))
                                                           (second y)))
                                        (scoring-yaku s))
                                   h)))
