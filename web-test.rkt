@@ -31,7 +31,18 @@
                    (br))))
              (list-score-hand hand gamestate))))))
 
+(define (score request)
+  (let* ([query (url-query (request-uri request))]
+         [query-hash (make-hash query)]
+         [hand (hash-ref query-hash 'hand)]
+         [raw-gamestate (hash-ref query-hash 'gamestate)]
+         [gamestate (map string->symbol (string-split raw-gamestate ","))])
+    (gen-page hand gamestate)))
+; /score?hand=1234567(8)9m22z%20444p&gamestate=seat-e,round-e,ron
+; /score?hand=123123m3453456(6)p&gamestate=seat-e,round-s,tsumo
+
 (define (demo request)
+  (sleep 10)
   #;(gen-page "456m11(1)22z 1111s 7777z" '(seat-s round-s ron))
   #;(gen-page "22334455m44556(6)p" '(seat-s round-s ron))
   #;(gen-page "888m1(1)222333z 44z4" '(ron))
@@ -58,6 +69,7 @@
     (case first-path
       [("hello" "") (hello request)]
       [("demo") (demo request)]
+      [("score") (score request)]
       [else (four-oh-four request)])))
 
 (define server
