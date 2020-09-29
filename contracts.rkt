@@ -25,7 +25,8 @@
          (struct-out short-yaku)
          (struct-out gamestate)
          make-gamestate
-         gamestate-shorthand)
+         gamestate-shorthand
+         gamestate-shorthand->string)
 
 (define (handlist? hand)
   (and (list? hand)
@@ -200,4 +201,39 @@
                   #:chankan (one-member? '(cha chankan) symbols)
                   #:rinshan (one-member? '(rin rinshan) symbols)
                   #:tenhou/chiihou (one-member? '(ten tenhou chi chiihou) symbols)))
+
+
+(define/contract (gamestate-shorthand->string g)
+  (-> (listof symbol?) string?)
+  (gamestate->string (gamestate-shorthand g)))
+
+(define/contract (gamestate->string g)
+  (-> gamestate? string?)
+  (let* ([round "east"]
+         [seat "south"])
+    (string-join
+     `(,(~a round " round")
+       ,(~a seat " seat")
+       ;dora
+       ,@(map first
+              (filter (λ (v) ((second v) g))
+                      `(("tsumo" ,gamestate-tsumo?)
+                        ("ron" ,gamestate-ron?)
+                        ("riichi" ,gamestate-riichi?)
+                        ("double riichi" ,gamestate-double?)
+                        ("ippatsu" ,gamestate-ippatsu?)
+                        ("haitei" ,gamestate-haitei?)
+                        ("houtei" ,gamestate-houtei?)
+                        ("chankan" ,gamestate-chankan?)
+                        ("rinshan kaihou" ,gamestate-rinshan?)
+                        ("tenhou" ,(λ (g) (and (equal? "1z" (gamestate-seat g))
+                                               (gamestate-tenhou/chiihou? g))))
+                        ("chiihou" ,(λ (g) (and (not (equal? "1z" (gamestate-seat g)))
+                                                (gamestate-tenhou/chiihou? g))))))))
+     ", ")))
+
+  
+
+
+
 

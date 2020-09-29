@@ -5,6 +5,7 @@
          net/url-structs
          net/url-string)
 (require "score-hand.rkt"
+         "contracts.rkt"
          net/base64
          file/convertible)
 
@@ -14,24 +15,27 @@
       (base64-encode (convert img 'png-bytes))))
 
 (define (gen-page hand gamestate)
-  (let ([scorelist (list-score-hand hand gamestate)])
-    (response/xexpr
-     `(html
-       (body
-        (p ,hand " south round, south seat, ron" (br) (br))
-        ,@(map (λ (img-and-text)
-                 (let* ([hand-image (first img-and-text)]
-                        [text (second img-and-text)]
-                        [split-text (string-split text "\n")])
-                   `(div
-                     (img ([src ,(img-encode hand-image)]))
-                     (p ,@(add-between split-text '(br)))
-                     (br))))
-               scorelist))))))
+  (response/xexpr
+   `(html
+     (body
+      (p ,hand (br)
+         ,(gamestate-shorthand->string gamestate) (br)
+         (br))
+      ,@(map (λ (img-and-text)
+               (let* ([hand-image (first img-and-text)]
+                      [text (second img-and-text)]
+                      [split-text (string-split text "\n")])
+                 `(div
+                   (img ([src ,(img-encode hand-image)]))
+                   (p ,@(add-between split-text '(br)))
+                   (br))))
+             (list-score-hand hand gamestate))))))
 
 (define (demo request)
-  ;(gen-page "456m11(1)22z 1111s 7777z" '(seat-s round-s ron))
-  (gen-page "22334455m44556(6)p" '(seat-s round-s ron)))
+  #;(gen-page "456m11(1)22z 1111s 7777z" '(seat-s round-s ron))
+  #;(gen-page "22334455m44556(6)p" '(seat-s round-s ron))
+  #;(gen-page "888m1(1)222333z 44z4" '(ron))
+  (gen-page "66z 1111z 2222z 3333z 4444z" '(seat-e round-s ron)))
 
 (define (hello request)
   (response/xexpr
