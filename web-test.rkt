@@ -42,7 +42,6 @@
 ; /score?hand=123123m3453456(6)p&gamestate=seat-e,round-s,tsumo
 
 (define (demo request)
-  (sleep 10)
   #;(gen-page "456m11(1)22z 1111s 7777z" '(seat-s round-s ron))
   #;(gen-page "22334455m44556(6)p" '(seat-s round-s ron))
   #;(gen-page "888m1(1)222333z 44z4" '(ron))
