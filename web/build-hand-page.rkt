@@ -3,12 +3,9 @@
 (provide build-hand)
 
 (require web-server/http
-         web-server/servlet-env
-         web-server/dispatchers/dispatch
          net/url-string
          "../score-hand.rkt"
-         "hand-page.rkt"
-         "score.rkt")
+         "hand-page.rkt")
 
 ; link up js
 ; non-text hand builder

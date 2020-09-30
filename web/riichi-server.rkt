@@ -4,9 +4,9 @@
          web-server/dispatchers/dispatch
          net/url-string
          racket/runtime-path
-         "score.rkt"
-         "build-hand.rkt"
-         "demo.rkt")
+         "score-page.rkt"
+         "build-hand-page.rkt"
+         "demo-page.rkt")
 
 (define (hello request)
   (response/xexpr
