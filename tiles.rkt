@@ -2,7 +2,8 @@
 ; TODO: 0m 0p 0s or 5*m 5*p 5*s as red fives
 (require "contracts.rkt")
 
-(provide shorthand->handlist
+(provide shorthand->tilelist
+         tile
          tile-sort
          tile<?
          suit<?
@@ -12,6 +13,15 @@
          tile-next
          tile-prev
          tile-pair?
+         tile-suit
+         tile-number
+         same-suit?
+         honor?
+         dragon?
+         wind?
+         wind-name
+         terminal?
+         simple?
          wind
          dragon)
 
@@ -44,20 +54,66 @@
                          [else (rec-pair (drop lst 2) (cons (take lst 2) ret))]))])
     (rec-pair lst '())))
 
-(define/contract (shorthand->handlist s)
-  (-> handstring? handlist?)
+(define/contract (shorthand->tilelist s)
+  (-> handstring? tilelist?)
   (map list->string
        (pair-up (string->list (shorthand-expand s)))))
 
+
+(define/contract (tile n suit)
+  (-> number? suit? tile?)
+  (string-append (number->string n)
+                 (string suit)))
+(define/contract (tile-suit tile)
+  (-> tile? suit?)
+  (string-ref tile 1))
+
+(define/contract (tile-number tile)
+  (-> tile? number?)
+  (string->number (substring tile 0 1)))
+
+(define/contract (same-suit? hand)
+  (-> (listof tile?) boolean?)
+  (let ([suit-count (set-count (list->set (map tile-suit hand)))])
+    (or (equal? suit-count 1)
+        (equal? suit-count 0))))
+
+(define/contract (honor? tile)
+  (-> tile? boolean?)
+  (equal? (tile-suit tile) #\z))
+
+(define/contract (dragon? tile)
+  (-> tile? boolean?)
+  (and (honor? tile)
+       (set-member? (set 5 6 7)
+                    (tile-number tile))))
+
+(define/contract (wind? tile)
+  (-> tile? boolean?)
+  (and (honor? tile)
+       (set-member? (set 1 2 3 4)
+                    (tile-number tile))))
+
+(define/contract (terminal? tile)
+  (-> tile? boolean?)
+  (and (not (honor? tile))
+       (set-member? (set 1 9)
+                    (tile-number tile))))
+
+(define/contract (simple? tile)
+  (-> tile? boolean?)
+  (nor (honor? tile)
+       (terminal? tile)))
+
 (define/contract (tile-sort h)
-  (-> handlist? handlist?)
+  (-> tilelist? tilelist?)
   (sort h tile<?))
 
 (define (tile-sorted? h)
   (equal? h (tile-sort h)))
 
 (define/contract (tile-sort-keep-last h)
-  (-> handlist? handlist?)
+  (-> tilelist? tilelist?)
   (if (empty? h)
       h
       (let* ([len (length h)]
@@ -123,3 +179,11 @@
     [(g green hatsu) "6z"]
     [(r red chun) "7z"]
     [else (raise-argument-error 'dragon "a symbol representing a dragon '(w g r white green red haku hatsu chun)" d)]))
+
+(define/contract (wind-name t)
+  (-> wind? string?)
+  (case t
+    [("1z") "east"]
+    [("2z") "south"]
+    [("3z") "west"]
+    [("4z") "north"]))

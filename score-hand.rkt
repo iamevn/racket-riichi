@@ -5,6 +5,7 @@
          "parse-hand.rkt"
          "call-notation.rkt"
          "yaku.rkt"
+         "gamestate.rkt"
          "tile-images.rkt")
 
 (provide (struct-out finished)
@@ -20,7 +21,7 @@
                            [yaku (listof short-yaku?)]
                            [hand hand?]) #:transparent)
 
-; given finished handlist/string find biggest scoring arrangement
+; given finished tilelist/string find biggest scoring arrangement
 (define/contract (score-hand h gs)
   (-> call-notation? gamestate? (listof finished?))
   (let ([hands (make-call-notation-hands h)])

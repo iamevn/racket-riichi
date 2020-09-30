@@ -5,7 +5,9 @@
 (require "contracts.rkt"
          "melds.rkt"
          "hand.rkt"
-         "parse-hand.rkt")
+         "tiles.rkt"
+         "parse-hand.rkt"
+         "gamestate.rkt")
 
 (define/contract (count-fu h g)
   (-> (and/c hand? hand-finished?) gamestate? number?)

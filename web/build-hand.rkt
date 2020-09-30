@@ -1,66 +1,18 @@
 #lang racket
+
+(provide build-hand)
+
 (require web-server/http
          web-server/servlet-env
-         web-server/servlet/setup
          web-server/dispatchers/dispatch
-         net/url-structs
-         net/url-string)
-(require "score-hand.rkt"
-         "contracts.rkt"
-         net/base64
-         file/convertible)
-
-; from https://stackoverflow.com/questions/44863550/how-to-draw-a-picture-in-web-app-using-racket
-(define (img-encode img)
-  (~a "data:image/png;base64,"
-      (base64-encode (convert img 'png-bytes))))
-
-(define (gen-page hand gamestate)
-  (response/xexpr
-   `(html
-     (body
-      (p ,hand (br)
-         ,(gamestate-shorthand->string gamestate) (br)
-         (br))
-      ,@(map (λ (img-and-text)
-               (let* ([hand-image (first img-and-text)]
-                      [text (second img-and-text)]
-                      [split-text (string-split text "\n")])
-                 `(div
-                   (img ([src ,(img-encode hand-image)]))
-                   (p ,@(add-between split-text '(br)))
-                   (br))))
-             (list-score-hand hand gamestate))))))
-
-(define last-exn '())
-; will need to handle bad hands, needs the right error code
-(define (score request)
-  (let* ([query (url-query (request-uri request))]
-         [query-hash (make-hash query)]
-         [hand (hash-ref query-hash 'hand)]
-         [raw-gamestate (hash-ref query-hash 'gamestate)]
-         [gamestate (map string->symbol (string-split raw-gamestate ","))])
-    (with-handlers ([exn:fail:contract?
-                     (λ (e)
-                       (set! last-exn e)
-                       (displayln e)
-                       (response/xexpr
-                        `(html
-                          (body
-                           (p "hand not finished:" (br)
-                              ,hand (br)
-                              ,gamestate (br))
-                           (div ,@(add-between (string-split (exn-message e)
-                                                             "\n")
-                                               '(br)))))))])
-      (gen-page hand gamestate))))
-; /score?hand=1234567(8)9m22z%20444p&gamestate=seat-e,round-e,ron
-; /score?hand=123123m3453456(6)p&gamestate=seat-e,round-s,tsumo
-; /score?hand=12322m444p78(9)p333z&gamestate=seat-s,round-e,ron,riichi,ippatsu
+         net/url-string
+         "../score-hand.rkt"
+         "hand-page.rkt"
+         "score.rkt")
 
 ; link up js
 ; non-text hand builder
-; 
+; frame for score? load data as json or something and render in-page?
 (define (build-hand request)
   (let* ([query (url-query (request-uri request))]
          [query-hash (make-hash query)])
@@ -137,43 +89,3 @@
                (li "An open chii of 6,7,8 bamboo with the 7 called from the player to the right")
                (li "A closed kan of 6 pin")
                (li "And a 3 pin as the tile that finished the hand.")))))))))
-
-(define (demo request)
-  #;(gen-page "456m11(1)22z 1111s 7777z" '(seat-s round-s ron))
-  (gen-page "22334455m44556(6)p" '(seat-s round-s ron))
-  #;(gen-page "888m1(1)222333z 44z4" '(ron))
-  #;(gen-page "66z 1111z 2222z 3333z 4444z" '(seat-e round-s ron)))
-
-(define (hello request)
-  (response/xexpr
-   `(html (body (p "hello world!" (br) (br) "demo page " (a ([href "demo"]) "here"))))))
-
-(define r '()) ; for inspecting requests in repl
-(define (route request)
-  ; save requests to inspect in repl
-  (display (~a "Request: " (url->string (request-uri request)))) (newline)
-  (set! r (cons request r))
-  (let* ([uri (request-uri request)]
-         [path (url-path uri)]
-         [first-path (if (zero? (length path))
-                         ""
-                         (path/param-path (first path)))])
-    (case first-path
-      [("hello" "") (hello request)]
-      [("demo") (demo request)]
-      [("score") (score request)]
-      [("build-hand") (build-hand request)]
-      [else (next-dispatcher)])))
-
-(define server
-  (thread
-   (λ ()
-     (serve/servlet route
-                    #:stateless? #t
-                    #:servlet-path "/build-hand"
-                    #:servlet-regexp #rx""
-                    #:extra-files-paths (list
-                                         (build-path (current-directory)
-                                                     "static"))
-                    #:launch-browser? #t
-                    #:listen-ip #f))))

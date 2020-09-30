@@ -4,7 +4,7 @@
          gen-page)
 
 (require "../score-hand.rkt"
-         "../contracts.rkt"
+         "../gamestate.rkt"
          net/base64
          file/convertible
          web-server/http)

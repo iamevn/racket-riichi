@@ -13,6 +13,7 @@
          "hand.rkt"
          "parse-hand.rkt"
          "rule-config.rkt"
+         "gamestate.rkt"
          "fu.rkt")
 
 

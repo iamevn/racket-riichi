@@ -55,11 +55,11 @@
 
 (define/contract (shorthand->images s)
   (-> handstring? (listof image?))
-  (map tile->image (shorthand->handlist s)))
+  (map tile->image (shorthand->tilelist s)))
 
 
 (define/contract (display-hand tiles)
-  (-> (or/c handstring? call-notation? hand? handlist?) void?)
+  (-> (or/c handstring? call-notation? hand? tilelist?) void?)
   (cond [(handstring? tiles)
          (display (shorthand->images tiles))]
         [(hand? tiles) (display-hand (hand-tiles tiles))] ; actually show melds
