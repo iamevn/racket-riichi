@@ -2,6 +2,7 @@
 (require web-server/http
          web-server/servlet-env
          web-server/servlet/setup
+         web-server/dispatchers/dispatch
          net/url-structs
          net/url-string)
 (require "score-hand.rkt"
@@ -31,35 +32,127 @@
                    (br))))
              (list-score-hand hand gamestate))))))
 
+(define last-exn '())
+; will need to handle bad hands, needs the right error code
 (define (score request)
   (let* ([query (url-query (request-uri request))]
          [query-hash (make-hash query)]
          [hand (hash-ref query-hash 'hand)]
          [raw-gamestate (hash-ref query-hash 'gamestate)]
          [gamestate (map string->symbol (string-split raw-gamestate ","))])
-    (gen-page hand gamestate)))
+    (with-handlers ([exn:fail:contract?
+                     (λ (e)
+                       (set! last-exn e)
+                       (displayln e)
+                       (response/xexpr
+                        `(html
+                          (body
+                           (p "hand not finished:" (br)
+                              ,hand (br)
+                              ,gamestate (br))
+                           (div ,@(add-between (string-split (exn-message e)
+                                                             "\n")
+                                               '(br)))))))])
+      (gen-page hand gamestate))))
 ; /score?hand=1234567(8)9m22z%20444p&gamestate=seat-e,round-e,ron
 ; /score?hand=123123m3453456(6)p&gamestate=seat-e,round-s,tsumo
+; /score?hand=12322m444p78(9)p333z&gamestate=seat-s,round-e,ron,riichi,ippatsu
+
+; link up js
+; non-text hand builder
+; 
+(define (build-hand request)
+  (let* ([query (url-query (request-uri request))]
+         [query-hash (make-hash query)])
+    (response/xexpr
+     `(html
+       (head (title "Riichi Hand Builder")
+             (script ([src "/js/build-hand.js"])))
+       (body
+        (input ([type "button"]
+                [id "score"]
+                [value "Score hand"]))
+        (fieldset
+         (legend "Hand shorthand")
+         (input ([type "text"]
+                 [id "input-hand"]
+                 [required "required"]
+                 [minlength "15"]
+                 [size "32"]
+                 [placeholder "12322m444p78(9)p333z"])))
+        (fieldset
+         (legend "Game state")
+         (div (div (label ([for "finish-type"]) "Finish type:")
+                   (select ([name "finish"]
+                            [id "finish-type"])
+                           (option ([value "tsumo"]) "tsumo")
+                           (option ([value "ron"]) "ron")))
+              (div (label ([for "round"]) "Round wind:")
+                   (select ([name "round"]
+                            [id "round"])
+                           (option ([value "1z"]) "east")
+                           (option ([value "2z"]) "south")
+                           (option ([value "3z"]) "west")
+                           (option ([value "4z"]) "north")))
+              (div (label ([for "seat"]) "Seat wind:")
+                   (select ([name "seat"]
+                            [id "seat"])
+                           (option ([value "1z"]) "east")
+                           (option ([value "2z"]) "south")
+                           (option ([value "3z"]) "west")
+                           (option ([value "4z"]) "north")))
+              ,@(map (λ (s)
+                       `(div (input ([type "checkbox"]
+                                     [id ,s]))
+                             (label ([for ,s]) ,s)))
+                     (list "riichi" "double" "ippatsu"
+                           "haitei" "houtei"
+                           "chankan" "rinshan"
+                           "tenhou" "chiihou"))))
+        (fieldset
+         (legend "Instructions")
+         (p "Type a hand into the text box and set the
+             game state in the selects and checkboxes.
+             Click [Score hand] button to score it."
+            (br))
+         (p "Shorthand works like this:" (br)
+            (l (li "Tiles are a number and a suit like 2m or 5s")
+               (li "Suits are either m, p, s, or z. Corresponding to manzu 
+                    (characters), pinzu (dots),  souzu (bamboo), and jihai (honors) 
+                    respectively.")
+               (li "123m and 1m2m3m are equivalent. Adjacent tiles of the same
+                    suit may omit the suit until the end of the group")
+               (li "The final drawn/called tile which finished the
+                    hand is marked by surrounding that tile with parentheses.")
+               (li "Called melds are separated from the rest of the tiles by spaces.")
+               (li "The position of the suit marker within a meld indicates
+                    who the meld was called from.")
+               (li "For a kan, the suit indicator being on the far right indicates
+                    a closed kan.")))
+         (p "For example, \"12(3)p44s 11z1 687s 6666p\" is a hand with" (br)
+            (img ([src ,(img-encode
+                         (first (first (list-score-hand "12(3)p44s 11z1 687s 6666p"
+                                                        '(seat-e tsumo)))))]))
+            (l (li "An open pon of east wind from the player across the table")
+               (li "An open chii of 6,7,8 bamboo with the 7 called from the player to the right")
+               (li "A closed kan of 6 pin")
+               (li "And a 3 pin as the tile that finished the hand.")))))))))
 
 (define (demo request)
   #;(gen-page "456m11(1)22z 1111s 7777z" '(seat-s round-s ron))
-  #;(gen-page "22334455m44556(6)p" '(seat-s round-s ron))
+  (gen-page "22334455m44556(6)p" '(seat-s round-s ron))
   #;(gen-page "888m1(1)222333z 44z4" '(ron))
-  (gen-page "66z 1111z 2222z 3333z 4444z" '(seat-e round-s ron)))
+  #;(gen-page "66z 1111z 2222z 3333z 4444z" '(seat-e round-s ron)))
 
 (define (hello request)
   (response/xexpr
    `(html (body (p "hello world!" (br) (br) "demo page " (a ([href "demo"]) "here"))))))
 
-(define (four-oh-four request)
-  (response/xexpr
-   `(html (body (p "unrecognized path:" (br) ,(url->string (request-uri request)))))))
-
 (define r '()) ; for inspecting requests in repl
 (define (route request)
-  (unless (equal? (path/param-path (first (url-path (request-uri request))))
-                  "favicon.ico") ; skip caching favicon request
-      (set! r request)) ; for inspecting requests in repl
+  ; save requests to inspect in repl
+  (display (~a "Request: " (url->string (request-uri request)))) (newline)
+  (set! r (cons request r))
   (let* ([uri (request-uri request)]
          [path (url-path uri)]
          [first-path (if (zero? (length path))
@@ -69,14 +162,18 @@
       [("hello" "") (hello request)]
       [("demo") (demo request)]
       [("score") (score request)]
-      [else (four-oh-four request)])))
+      [("build-hand") (build-hand request)]
+      [else (next-dispatcher)])))
 
 (define server
   (thread
    (λ ()
      (serve/servlet route
                     #:stateless? #t
-                    #:servlet-path "/demo"
+                    #:servlet-path "/build-hand"
                     #:servlet-regexp #rx""
+                    #:extra-files-paths (list
+                                         (build-path (current-directory)
+                                                     "static"))
                     #:launch-browser? #t
                     #:listen-ip #f))))
