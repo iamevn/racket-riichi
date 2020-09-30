@@ -248,7 +248,6 @@
 
 (define yakumanlist
   (list
-   #;(yakuman 'kazoe "counted yakuman" #true (λ (h g) 0))
    (yakuman 'kokushi-musou "thirteen orphans" #false
             (λ (h g)
               (if (hand-kokushi? h)
@@ -281,8 +280,7 @@
    (yakuman 'shousuushi "small four winds" #true
             (λ (h g)
               (if (and (wind? (first (hand-pair h)))
-                       (equal? (length (filter (λ (m) (wind? (meld-first m)))
-                                               (hand-melds h)))
+                       (equal? (length (filter (compose wind? meld-first) (hand-melds h)))
                                3))
                   1
                   0)))
@@ -322,23 +320,22 @@
               (if (and (hand-closed? h)
                        (equal? (set-count (list->set (map tile-suit (hand-tiles h))))
                                1)
-                       (letrec ([check-chuuren
-                                 (λ (tiles pattern extra-found)
-                                   (cond
-                                     [(empty? tiles)
-                                      (and extra-found (empty? pattern))]
-                                     [(empty? pattern)
-                                      (if extra-found #false
-                                          (check-chuuren (rest tiles) pattern #true))]
-                                     [else (if (equal? (first tiles) (first pattern))
-                                               (check-chuuren (rest tiles) (rest pattern) extra-found)
-                                               (if extra-found
-                                                   #false
-                                                   (check-chuuren (rest tiles) pattern #true)))]))])
-                         (check-chuuren (map tile-number (hand-tiles h))
-                                        '(1 1 1 2 3 4 5 6 7 8 9 9 9)
-                                        #false)))
+                       (let check-chuuren ([tiles (map tile-number (hand-tiles h))]
+                                           [pattern '(1 1 1 2 3 4 5 6 7 8 9 9 9)]
+                                           [extra-found #false])
+                         (cond
+                           [(empty? tiles)
+                            (and extra-found (empty? pattern))]
+                           [(empty? pattern)
+                            (if extra-found #false
+                                (check-chuuren (rest tiles) pattern #true))]
+                           [else (if (equal? (first tiles) (first pattern))
+                                     (check-chuuren (rest tiles) (rest pattern) extra-found)
+                                     (if extra-found
+                                         #false
+                                         (check-chuuren (rest tiles) pattern #true)))])))
                   (if (and (rule? 'chuuren-double)
+                           ; 9 sided wait results in either four 1's, four 9's, or two of another tile
                            (let* ([t (hand-last-tile h)]
                                   [c (count (curry equal? t) (hand-tiles h))])
                              (if (or (equal? (tile-number t) 1)

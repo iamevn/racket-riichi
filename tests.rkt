@@ -1,4 +1,7 @@
 #lang racket
+
+(provide build-yaku-test-case)
+
 (require rackunit
          "parse-hand.rkt"
          "score.rkt"
@@ -222,5 +225,7 @@
   han-tests
   base-score-tests)
 
-; (require rackunit/gui) (test/gui full-suite)
-(require rackunit/text-ui) (run-tests full-suite)
+(module+ main
+  (require rackunit/gui) (test/gui full-suite)
+  ; (require rackunit/text-ui) (run-tests full-suite)
+  )
