@@ -1,6 +1,7 @@
 #lang racket
 
 (require 2htdp/image
+         racket/runtime-path
          "contracts.rkt"
          "tiles.rkt"
          "hand.rkt"
@@ -18,9 +19,10 @@
          hand->image
          meld->image)
 
+(define-runtime-path tiledir "tiles")
 ; load tiles using 2htdp/image
 (define tilepaths
-  (map (λ (basename) (string-append "tiles/" basename ".gif"))
+  (map (λ (basename) (build-path tiledir (~a basename ".gif")))
        (flatten (list "back" "ton" "nan" "sha" "pei" "haku" "hatsu" "chun"
                       (map (λ (suit)
                              (map (λ (n)(string-append suit (number->string n))) (range 1 10)))
