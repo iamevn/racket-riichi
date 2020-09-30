@@ -12,6 +12,7 @@
          "hand.rkt"
          "rule-config.rkt"
          "yaku.rkt"
+         "gamestate.rkt"
          "fu.rkt")
 
 (struct/contract scoring ([fu number?]

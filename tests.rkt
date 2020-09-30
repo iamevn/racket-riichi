@@ -5,11 +5,9 @@
          "contracts.rkt"
          "hand.rkt"
          "yaku.rkt"
+         "gamestate.rkt"
+         "util.rkt"
          "fu.rkt")
-
-(define/contract (member? v lst)
-  (-> any/c list? boolean?)
-  (not (false? (member v lst))))
 
 (define/contract (build-testcase-gamestate tc)
   (-> (and/c list? (list-length/c 2 #:cmp >=)) (and/c list? (list-length/c 2 #:cmp >=)))

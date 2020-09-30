@@ -1,7 +1,7 @@
 #lang racket
 
 (provide call-notation?
-         call-shorthand->handlist
+         call-shorthand->tilelist
          call-shorthand->melds
          call-shorthand->closed-melds-last)
 
@@ -57,19 +57,19 @@
          [call-matches call-matches-groups])
     (list base-match call-matches last-tile-specified)))
 
-(define/contract (call-shorthand->handlist s)
+(define/contract (call-shorthand->tilelist s)
   (-> string? (listof tile?))
   (cond
-    [(handstring? s) (shorthand->handlist s)]
+    [(handstring? s) (shorthand->tilelist s)]
     [(regexp-match? #rx"([1-9]+[mps][1-9]*)|([1-7]+z[1-7]*)" s)
      (let ([suit (first (regexp-match #rx"[mpsz]" s))]
            [trimmed (string-trim s)])
-       (shorthand->handlist (string-append* (append (string-split trimmed suit) (list suit)))))]
-    [else (raise-argument-error 'call-shorthand->handlist "my shorthand" s)]))
+       (shorthand->tilelist (string-append* (append (string-split trimmed suit) (list suit)))))]
+    [else (raise-argument-error 'call-shorthand->tilelist "my shorthand" s)]))
 
 (define/contract (call-shorthand->melds call-strings)
   (-> (listof call-notation?) any/c #;(listof meld?))
-  (let ([call-tilelists (map call-shorthand->handlist call-strings)]
+  (let ([call-tilelists (map call-shorthand->tilelist call-strings)]
         [call-open (map (λ (s) (not (regexp-match? #rx"^ ....[mpsz]$" s))) call-strings)])
     (map (λ (co) (let ([tilelist (first co)]
                        [open (second co)])
@@ -79,7 +79,7 @@
 (define/contract (call-shorthand->closed-melds-last s)
   (-> call-notation? (list/c (listof tile?) (listof meld?) tile?))
   (let* ([split-out (split-notation s)]
-         [base-tiles (call-shorthand->handlist (first split-out))]
+         [base-tiles (call-shorthand->tilelist (first split-out))]
          [melds (call-shorthand->melds (second split-out))]
          [last-tile (or (third split-out) (last base-tiles))])
     (list base-tiles melds last-tile)))
