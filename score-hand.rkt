@@ -75,7 +75,8 @@
   (map (λ (f)
          (list
           (hand->image (finished-hand f))
-          (pstring-finished f)))
+          (pstring-finished f)
+          f))
        (score-hand hsh (gamestate-shorthand gsh))))
 
 (define (print-score-hand hsh gsh [out (current-output-port)])

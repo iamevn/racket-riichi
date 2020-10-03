@@ -5,6 +5,7 @@
 
 (require "../score-hand.rkt"
          "../gamestate.rkt"
+         "../hand.rkt"
          net/base64
          file/convertible
          web-server/http)
@@ -23,10 +24,11 @@
          (br))
       ,@(map (λ (img-and-text)
                (let* ([hand-image (first img-and-text)]
+                      [hand-str (hand->call-notation (finished-hand (third img-and-text)))]
                       [text (second img-and-text)]
                       [split-text (string-split text "\n")])
                  `(div
-                   (img ([src ,(img-encode hand-image)]))
+                   (img ([src ,(~a "hand/" hand-str)]))
                    (p ,@(add-between split-text '(br)))
                    (br))))
              (list-score-hand hand gamestate))))))

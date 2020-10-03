@@ -3,6 +3,7 @@
 (require 2htdp/image
          racket/runtime-path
          "contracts.rkt"
+         "util.rkt"
          "tiles.rkt"
          "hand.rkt"
          "melds.rkt"
@@ -15,6 +16,7 @@
          pinzu
          souzu
          tile->image
+         call-notation->image
          shorthand->images
          hand->image
          meld->image)
@@ -62,7 +64,7 @@
   (-> (or/c handstring? call-notation? hand? tilelist?) void?)
   (cond [(handstring? tiles)
          (display (shorthand->images tiles))]
-        [(hand? tiles) (display-hand (hand-tiles tiles))] ; actually show melds
+        [(hand? tiles) (display-hand (hand-tiles tiles))] ; TODO: actually show melds
         [else (display-hand (apply string-append tiles))]))
 
 (define/contract (hand->image h)
@@ -86,7 +88,7 @@
                      (above (rotate -90 (second images))
                             (rotate -90 (third images)))
                      tile-back)]
-      ; how to pick sideways tile
+      ; TODO: how to pick sideways tile
       [(and (meld-kan? m)
             (meld-open? m))
        (beside/align (first images)
@@ -97,3 +99,21 @@
        (apply beside images)]
       [(meld-pon? m)
        (apply beside images)])))
+
+(define/contract (call-notation->image s)
+  (-> call-notation? image?)
+  (let* ([parsed (call-shorthand->closed-melds-last s)]
+         [base (first parsed)]
+         [melds (second parsed)]
+         [base-img (beside/align-bottom* (map tile->image base))]
+         [meld-imgs (map meld->image melds)])
+    (if (empty? melds)
+        base-img
+        (beside/align-bottom* (add-between (list* base-img meld-imgs)
+                                           spacer)))))
+
+(define/contract (beside/align-bottom* lst)
+  (-> list? image?)
+  (if (equal? (length lst) 1)
+      (first lst)
+      (apply (curry beside/align "bottom") lst)))

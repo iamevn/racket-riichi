@@ -8,7 +8,8 @@
          kokushi?
          hand-kokushi?
          find-hand-waits
-         finished-wait-pattern)
+         finished-wait-pattern
+         hand->call-notation)
 
 (require "tiles.rkt"
          "melds.rkt"
@@ -21,6 +22,59 @@
                                     (list-length/c 2)
                                     all-equal?)]
                        [last-tile tile?]) #:transparent)
+
+(define/contract (hand->call-notation h)
+  (-> hand? call-notation?)
+  (let* ([split-melds (let loop ([melds (reverse (hand-melds h))]
+                                 [uncalled '()]
+                                 [called '()])
+                        (cond
+                          [(empty? melds) (list uncalled called)]
+                          [(or (meld-open? (first melds))
+                               (and (meld-closed? (first melds))
+                                    (meld-kan? (first melds))))
+                           (loop (cdr melds)
+                                 uncalled
+                                 (cons (car melds) called))]
+                          [else
+                           (loop (cdr melds)
+                                 (cons (car melds) uncalled)
+                                 called)]))]
+         [uncalled (first split-melds)]
+         [called (second split-melds)]
+         [uncalled-strs (map (compose (curryr string-join "") meld-tiles) uncalled)]
+         [called-strs (map (compose (curryr string-join "") meld-tiles) called)]) ; TODO: position suit correctly
+    (string-join (cons (simplify-handstring
+                        (string-join (append uncalled-strs
+                                             (hand-pair h))
+                                     ""))
+                 
+                       called-strs)
+                 " ")))
+
+(define/contract (simplify-handstring hs)
+  (-> call-notation? call-notation?)
+  (define digits (list->set (string->list "123456789")))
+  (define (digit? c) (set-member? digits c))
+  (define suits (list->set (string->list "mpsz")))
+  (define (suit? c) (set-member? suits c))
+  
+  (let loop ([lst (reverse (string->list hs))]
+             [res '()]
+             [last-suit #f])
+    (cond
+      [(empty? lst) (list->string res)]
+      [(digit? (car lst))
+       (loop (cdr lst)
+             (cons (car lst) res)
+             last-suit)]
+      [(equal? (car lst) last-suit)
+       (loop (cdr lst)
+             res
+             last-suit)]
+      [else (loop (cdr lst)
+                  (cons (car lst) res)
+                  (car lst))])))
 
 (define/contract (hand-open? h)
   (-> hand? boolean?)

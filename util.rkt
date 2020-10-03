@@ -5,7 +5,9 @@
          count-distinct
          all-equal?
          member?
-         one-member?)
+         one-member?
+         remove-each
+         remove-parens)
 
 (define (list-length/c n #:cmp [cmp equal?])
   (flat-named-contract
@@ -44,3 +46,14 @@
 
 (define (one-member? vs lst)
   (ormap (curryr member? lst) vs))
+
+(define/contract (remove-each to-remove s)
+  (-> (listof string?) string? string?)
+  (if (empty? to-remove)
+      s
+      (remove-each (cdr to-remove)
+                   (string-replace s (car to-remove) ""))))
+
+(define/contract (remove-parens s)
+  (-> string? string?)
+  (remove-each '("(" ")") s))

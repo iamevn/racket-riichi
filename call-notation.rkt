@@ -6,6 +6,7 @@
          call-shorthand->closed-melds-last)
 
 (require "contracts.rkt"
+         "util.rkt"
          "tiles.rkt"
          "melds.rkt")
 
@@ -24,17 +25,6 @@
 ;   "123234s555p88(8)m22z"
 ;   "123234s555p(8)88m22z"
 ;   "(8m)123234s555p88m22z"
-(define/contract (call-notation? s)
-  (-> any/c boolean?)
-  (and (string? s)
-       (<= (count (curry equal? #\() (string->list s)) 1)
-       (<= (count (curry equal? #\)) (string->list s)) 1)
-       (regexp-match?
-        #rx"^(([1-9]+[mps])|([1-7]+z))*( (([1-9]+[mps][1-9]*)|([1-7]+z[1-7]*)))*$"
-        (remove-parens s))))
-
-(define (remove-parens s)
-  (string-replace (string-replace s "(" "")  ")" ""))
 
 (define (find-last-tile s)
   (if (and (string-contains? s "(")

@@ -6,7 +6,8 @@
          racket/runtime-path
          "score-page.rkt"
          "build-hand-page.rkt"
-         "demo-page.rkt")
+         "demo-page.rkt"
+         "hand.rkt")
 
 (define (hello request)
   (response/xexpr
@@ -23,6 +24,7 @@
       [("demo") (demo request)]
       [("score") (score request)]
       [("build-hand") (build-hand request)]
+      [("hand") (hand-image request)]
       [else (next-dispatcher)])))
 
 
