@@ -17,7 +17,6 @@
       (p "Invalid hand")))))
 
 (define (hand-image request)
-  (set! r request)
   (let* ([uri (request-uri request)]
          [path (url-path uri)])
     (if (not (equal? (length path) 2))

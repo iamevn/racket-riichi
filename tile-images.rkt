@@ -41,7 +41,7 @@
 (define souzu (take (drop tile-images 26) 9))
 (define spacer
   (let ([height (image-height tile-back)]
-        [width (* 0.25 (image-width tile-back))])
+        [width (* 0.5 (image-width tile-back))])
     (rectangle width height 0 'transparent)))
 
 (define/contract (tile->image tile)
@@ -59,14 +59,6 @@
   (-> handstring? (listof image?))
   (map tile->image (shorthand->tilelist s)))
 
-
-(define/contract (display-hand tiles)
-  (-> (or/c handstring? call-notation? hand? tilelist?) void?)
-  (cond [(handstring? tiles)
-         (display (shorthand->images tiles))]
-        [(hand? tiles) (display-hand (hand-tiles tiles))] ; TODO: actually show melds
-        [else (display-hand (apply string-append tiles))]))
-
 (define/contract (hand->image h)
   (-> hand? image?)
   (let* ([m (hand-melds h)])
@@ -83,22 +75,51 @@
     (cond
       [(and (meld-kan? m)
             (meld-closed? m))
+       ; this is wrong, the stacked sideways tiles are for added kans
+       #;(beside/align "bottom"
+                       tile-back
+                       (above (rotate -90 (second images))
+                              (rotate -90 (third images)))
+                       tile-back)
        (beside/align "bottom"
                      tile-back
-                     (above (rotate -90 (second images))
-                            (rotate -90 (third images)))
-                     tile-back)]
-      ; TODO: how to pick sideways tile
-      [(and (meld-kan? m)
-            (meld-open? m))
-       (beside/align (first images)
                      (second images)
                      (third images)
-                     (fourth images))]
-      [(meld-chii? m)
-       (apply beside images)]
-      [(meld-pon? m)
-       (apply beside images)])))
+                     tile-back)]
+      [(and (meld-kan? m)
+            (meld-open? m))
+       (if (meld-src? m)
+           (let ([callee (meld-src-callee m)])
+             (beside/align "bottom"
+                           (if (equal? callee 'left)
+                               (rotate -90 (first images))
+                               (first images))
+                           (if (equal? callee 'middle)
+                               (rotate -90 (second images))
+                               (second images))
+                           (third images)
+                           (if (equal? callee 'right)
+                               (rotate -90 (fourth images))
+                               (fourth images))))
+           (beside/align "bottom"
+                         (first images)
+                         (second images)
+                         (third images)
+                         (fourth images)))]
+      [(or (meld-chii? m)
+           (meld-pon? m))
+       (if (meld-src? m)
+           (let* ([callee (meld-src-callee m)]
+                  [called (meld-src-called-tile m)]
+                  [uncalled (remove called (meld-tiles m))]
+                  [called-img (rotate -90 (tile->image called))]
+                  [uncalled-imgs (map tile->image uncalled)])
+             (beside/align-bottom*
+              (case callee
+                [(left) (cons called-img uncalled-imgs)]
+                [(middle) (cons (car uncalled-imgs) (cons called-img (cdr uncalled-imgs)))]
+                [(right) (append uncalled-imgs (list called-img))])))
+           (apply beside images))])))
 
 (define/contract (call-notation->image s)
   (-> call-notation? image?)
