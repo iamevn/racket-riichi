@@ -1,5 +1,6 @@
 #lang racket
 (provide (struct-out meld)
+         (struct-out meld-src)
          meld-suit
          meld-numbers
          meld-first
@@ -20,6 +21,9 @@
 (struct/contract meld ([tiles (and/c (listof tile?)
                                      same-suit?)]
                        [open? boolean?]) #:transparent)
+
+(struct/contract meld-src meld ([called-tile tile?]
+                                [callee symbol?]) #:transparent)
 
 (define/contract (meld-suit meld)
   (-> meld? suit?)
@@ -60,28 +64,45 @@
   (-> meld? boolean?)
   (not (meld-open? meld)))
 
-(define/contract (make-chii-meld first-tile [open #false])
+(define/contract (make-chii-meld first-tile [open #false] [called-tile #false] [callee #false])
   (->* ((and/c tile?
-             (not/c honor?)
-             (flat-named-contract
-              'tile-not-8-or-9
-              (λ (tile)
-                (not (set-member? (set 8 9)
-                                  (tile-number tile)))))))
-      (boolean?)
-      meld?)
-  (meld (list first-tile
-              (tile-next first-tile)
-              (tile-next (tile-next first-tile)))
-        open))
+               (not/c honor?)
+               (flat-named-contract
+                'tile-not-8-or-9
+                (λ (tile)
+                  (not (set-member? (set 8 9)
+                                    (tile-number tile)))))))
+       (boolean? (maybe/c tile?) (maybe/c symbol?))
+       meld?)
+  (if open
+      (meld-src (list first-tile
+                      (tile-next first-tile)
+                      (tile-next (tile-next first-tile)))
+                open
+                called-tile
+                callee)
+      (meld (list first-tile
+                  (tile-next first-tile)
+                  (tile-next (tile-next first-tile)))
+            open)))
 
-(define/contract (make-pon-meld first-tile [open #false])
-  (->* (tile?) (boolean?) meld?)
-  (meld (make-list 3 first-tile) open))
+(define/contract (make-pon-meld first-tile [open #false] [called-tile #false] [callee #false])
+  (->* (tile?) (boolean? (maybe/c tile?) (maybe/c symbol?)) meld?)
+  (if open
+      (meld-src (make-list 3 first-tile)
+                open
+                called-tile
+                callee)
+      (meld (make-list 3 first-tile) open)))
 
-(define/contract (make-kan-meld first-tile [open #false])
-  (->* (tile?) (boolean?) meld?)
-  (meld (make-list 4 first-tile) open))
+(define/contract (make-kan-meld first-tile [open #false] [called-tile #false] [callee #false])
+  (->* (tile?) (boolean? (maybe/c tile?) (maybe/c symbol?)) meld?)
+  (if open
+      (meld-src (make-list 4 first-tile)
+                open
+                called-tile
+                callee)
+      (meld (make-list 4 first-tile) open)))
 
 (define/contract (meld-sort melds)
   (-> (listof meld?) (listof meld?))

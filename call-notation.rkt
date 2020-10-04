@@ -58,13 +58,30 @@
     [else (raise-argument-error 'call-shorthand->tilelist "my shorthand" s)]))
 
 (define/contract (call-shorthand->melds call-strings)
-  (-> (listof call-notation?) any/c #;(listof meld?))
-  (let ([call-tilelists (map call-shorthand->tilelist call-strings)]
-        [call-open (map (λ (s) (not (regexp-match? #rx"^ ....[mpsz]$" s))) call-strings)])
+  (-> (listof call-notation?) (listof meld?))
+  (let* ([call-tilelists (map call-shorthand->tilelist call-strings)]
+         [call-open (map (λ (s) (not (regexp-match? #rx"^ ....[mpsz]$" s))) call-strings)]
+         [called-tiles (map (λ (s o) (if o
+                                         (first (regexp-match #rx"[1-9][mpsz]" s))
+                                         #false))
+                            call-strings call-open)]
+         [callees (map (λ (s o)
+                         (if (not o)
+                             #false
+                             (cond
+                               [(suit? (string-ref s 2)) 'left]
+                               [(suit? (string-ref s 3)) 'middle]
+                               [(suit? (string-ref s 4)) 'right]
+                               [else #false])))
+                       call-strings call-open)])
     (map (λ (co) (let ([tilelist (first co)]
-                       [open (second co)])
-                   (meld (tile-sort tilelist) open)))
-         (map list call-tilelists call-open))))
+                       [open (second co)]
+                       [called (third co)]
+                       [callee (fourth co)])
+                   (if open
+                       (meld-src (tile-sort tilelist) open called callee)
+                       (meld (tile-sort tilelist) open))))
+         (map list call-tilelists call-open called-tiles callees))))
 
 (define/contract (call-shorthand->closed-melds-last s)
   (-> call-notation? (list/c (listof tile?) (listof meld?) tile?))

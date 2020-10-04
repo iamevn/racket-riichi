@@ -1,4 +1,3 @@
-
 #lang racket
 (provide tilelist?
          suit?
@@ -7,7 +6,8 @@
          call-notation?
          strict-handstring?
          (struct-out payment)
-         (struct-out short-yaku))
+         (struct-out short-yaku)
+         maybe/c)
 
 (require "util.rkt")
 
@@ -57,3 +57,6 @@
        (regexp-match?
         #rx"^(([1-9]+[mps])|([1-7]+z))*( (([1-9]+[mps][1-9]*)|([1-7]+z[1-7]*)))*$"
         (remove-parens s))))
+
+(define (maybe/c c)
+  (or/c #f c))
