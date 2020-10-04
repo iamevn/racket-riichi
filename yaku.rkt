@@ -109,24 +109,22 @@
          (λ (h g)
            (let* ([melds (hand-melds h)]
                   [chiis (filter meld-chii? melds)]
-                  [chiiset (list->set chiis)])
-             
+                  [chiistarts  (map meld-first chiis)])
              (if (and (>= (length chiis) 3) ; at least 3 chiis
                       (equal? 3 (set-count (list->set (map meld-suit chiis)))) ; all 3 suits
-                      (ormap (λ (m) ; some chii has matching chiis in the other suits
-                               (let* ([n (tile-number (meld-first m))])
-                                 (and (set-member? chiiset (make-chii-meld (tile n #\m)))
-                                      (set-member? chiiset (make-chii-meld (tile n #\p)))
-                                      (set-member? chiiset (make-chii-meld (tile n #\s))))))
-                             chiis))
+                      (ormap (λ (t) ; some chii has matching chiis in the other suits
+                               (let ([n (tile-number t)])
+                                 (and (set-member? chiistarts (tile n #\m))
+                                      (set-member? chiistarts (tile n #\p))
+                                      (set-member? chiistarts (tile n #\s)))))
+                             chiistarts))
                  (if (hand-closed? h) 2 1)
                  0))))
    (yaku 'ittsuu "straight" 1 2
          (λ (h g)
            (let* ([melds (hand-melds h)]
                   [chiis (filter meld-chii? melds)]
-                  [chiiset (list->set chiis)]
-                  [chiistarts (list->set (set-map chiiset meld-first))])
+                  [chiistarts (list->set (map meld-first chiis))])
              (if (or (and (set-member? chiistarts (tile 1 #\m))
                           (set-member? chiistarts (tile 4 #\m))
                           (set-member? chiistarts (tile 7 #\m)))
@@ -165,18 +163,19 @@
    (yaku 'sanshoku-doukou "three colored triplets" 2 2
          (λ (h g)
            (let* ([melds (hand-melds h)]
-                  [pons (filter (λ (m) (not (equal? #\z (meld-suit m))))
-                                (filter meld-pon? melds))] ; non-honor pons
-                  [ponset (list->set pons)])
+                  [pons (filter (compose not (curry equal? #\z) (curry meld-suit))
+                                (filter (compose not (curry meld-chii?)) melds))] ; non-honor pons/kans
+                  [pon-starts (map meld-first pons)]
+                  [pon-start-set (list->set pon-starts)])
              
              (if (and (>= (length pons) 3) ; at least 3 pons
                       (equal? 3 (set-count (list->set (map meld-suit pons)))) ; all 3 suits
-                      (ormap (λ (m) ; some chii has matching chiis in the other suits
-                               (let* ([n (tile-number (meld-first m))])
-                                 (and (set-member? ponset (make-pon-meld (tile n #\m)))
-                                      (set-member? ponset (make-pon-meld (tile n #\p)))
-                                      (set-member? ponset (make-pon-meld (tile n #\s))))))
-                             pons))
+                      (ormap (λ (t) ; some chii has matching chiis in the other suits
+                               (let* ([n (tile-number t)])
+                                 (and (set-member? pon-start-set (tile n #\m))
+                                      (set-member? pon-start-set (tile n #\p))
+                                      (set-member? pon-start-set (tile n #\s)))))
+                             pon-starts))
                  2
                  0))))
    (yaku 'sankantsu "three kans" 2 2

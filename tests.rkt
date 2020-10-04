@@ -82,6 +82,8 @@
                      ("666m777p44s222z123p" (tsu) sanankou)
                      ("777m888p33s11777z3s" (ron) sanankou)
                      ("456777m5777s777p5s" (ron) sanshoku-doukou)
+                     ("456777m5777s5s 7777p" (ron) sanshoku-doukou)
+                     ("456777m55s 7777p 7s77" (ron) sanshoku-doukou)
                      ("456m22s 66p66 999s9 5555s" (tsu) sankantsu)
                      ("1177p33z55m2z44s552z" (ron) chiitoitsu)
                      ("1177p33z55m2z44s552z" (tsu) chiitoitsu)
@@ -226,6 +228,6 @@
   base-score-tests)
 
 (module+ main
-  (require rackunit/gui) (test/gui full-suite)
-  ; (require rackunit/text-ui) (run-tests full-suite)
+  ;'(require rackunit/gui) (test/gui full-suite)
+   (require rackunit/text-ui) (run-tests full-suite)
   )
