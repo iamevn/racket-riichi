@@ -79,7 +79,7 @@
                (li "For a kan, the suit indicator being on the far right indicates
                     a closed kan.")))
          (p "For example, \"12(3)p44s 11z1 687s 6666p\" is a hand with" (br)
-            (img ([src "hand/12(3)p44s 11z1 678s 666p"]))
+            (img ([src "hand/12(3)p44s 11z1 678s 6666p"]))
             (l (li "An open pon of east wind from the player across the table")
                (li "An open chii of 6,7,8 bamboo with the 7 called from the player to the right")
                (li "A closed kan of 6 pin")

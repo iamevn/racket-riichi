@@ -13,7 +13,8 @@
          make-chii-meld
          make-pon-meld
          make-kan-meld
-         meld-has?)
+         meld-has?
+         meld->string)
 
 (require "contracts.rkt"
          "tiles.rkt")
@@ -24,6 +25,32 @@
 
 (struct/contract meld-src meld ([called-tile tile?]
                                 [callee symbol?]) #:transparent)
+
+
+(define/contract (meld->string m)
+  (-> meld? string?)
+  (if (and (meld-src? m)
+           (or (meld-open? m)
+               (meld-kan? m)))
+      (string-join (cond
+                     [(and (meld-closed? m)
+                           (meld-kan? m))
+                      (append (map number->string (meld-numbers m)) (list (string (meld-suit m))))]
+                     [else (let* ([callee (meld-src-callee m)]
+                                  [called-tile (meld-src-called-tile m)]
+                                  [uncalled-tiles (remove called-tile (meld-tiles m))]
+                                  [uncalled-numbers (map (compose number->string tile-number) uncalled-tiles)])
+                             (case callee
+                               [(left) (cons called-tile uncalled-numbers)]
+                               [(middle) (cons (car uncalled-numbers) (cons called-tile (cdr uncalled-numbers)))]
+                               [(right) (cons (car uncalled-numbers)
+                                              (cons (car (cdr uncalled-numbers))
+                                                    (cons called-tile
+                                                          (cdr (cdr uncalled-numbers)))))]))])
+                   "")
+      (string-append (string-join (map number->string (meld-numbers m))
+                                  "")
+                     (string (meld-suit m)))))
 
 (define/contract (meld-suit meld)
   (-> meld? suit?)

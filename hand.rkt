@@ -43,7 +43,7 @@
          [uncalled (first split-melds)]
          [called (second split-melds)]
          [uncalled-strs (map (compose (curryr string-join "") meld-tiles) uncalled)]
-         [called-strs (map (compose (curryr string-join "") meld-tiles) called)]) ; TODO: position suit correctly
+         [called-strs (map meld->string called)])
     (string-join (cons (simplify-handstring
                         (string-join (append uncalled-strs
                                              (hand-pair h))
