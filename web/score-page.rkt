@@ -28,7 +28,8 @@
                            (div ,@(add-between (string-split (exn-message e)
                                                              "\n")
                                                '(br)))))))])
-      (gen-page hand gamestate #:dora dora))))
+      (response/xexpr
+       (gen-page hand gamestate #:dora dora)))))
 ; /score?hand=1234567(8)9m22z%20444p&gamestate=seat-e,round-e,ron
 ; /score?hand=123123m3453456(6)p&gamestate=seat-e,round-s,tsumo
 ; /score?hand=12322m444p78(9)p333z&gamestate=seat-s,round-e,ron,riichi,ippatsu

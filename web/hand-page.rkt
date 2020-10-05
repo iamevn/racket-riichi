@@ -16,19 +16,17 @@
       (base64-encode (convert img 'png-bytes))))
 
 (define (gen-page hand gamestate #:dora [dora 0])
-  (response/xexpr
-   `(html
-     (body
-      (p ,hand (br)
-         ,(gamestate-shorthand->string gamestate) (br)
-         (br))
-      ,@(map (λ (img-and-text)
-               (let* ([hand-image (first img-and-text)]
-                      [hand-str (hand->call-notation (finished-hand (third img-and-text)))]
-                      [text (second img-and-text)]
-                      [split-text (string-split text "\n")])
-                 `(div
-                   (img ([src ,(~a "hand/" hand-str)]))
-                   (p ,@(add-between split-text '(br)))
-                   (br))))
-             (list-score-hand hand gamestate #:dora dora))))))
+  `(div
+    (p ,hand (br)
+       ,(gamestate-shorthand->string gamestate) (br)
+       (br))
+    ,@(map (λ (img-and-text)
+             (let* ([hand-image (first img-and-text)]
+                    [hand-str (hand->call-notation (finished-hand (third img-and-text)))]
+                    [text (second img-and-text)]
+                    [split-text (string-split text "\n")])
+               `(div
+                 (img ([src ,(~a "hand/" hand-str)]))
+                 (p ,@(add-between split-text '(br)))
+                 (br))))
+           (list-score-hand hand gamestate #:dora dora))))

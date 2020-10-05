@@ -135,6 +135,17 @@ window.addEventListener('load', (event) => {
   const countDora = () => {
     return document.querySelector('#dora').value;
   };
+  const updatePage = (url) => {
+    //window.location.href = url;
+    console.log("url: ", url);
+    fetch(url).then((r) => {
+      r.blob().then((b) => {
+        b.text().then((t) => {
+          document.getElementById("putScoreHere").innerHTML = t;
+        });
+      });
+    });
+  };
   score.addEventListener('click', (event) => {
     console.log('Hand:', hand.value);
     const hand_is_shorthand = shorthandValid(hand.value);
@@ -142,7 +153,7 @@ window.addEventListener('load', (event) => {
     if (hand_is_shorthand) {
       console.log('full:', handFull(hand.value));
       if (handFull(hand.value)) {
-        window.location.href = `../score?hand=${hand.value}&gamestate=${readGamestate()}&dora=${countDora()}`;
+        updatePage(`/score?hand=${hand.value}&gamestate=${readGamestate()}&dora=${countDora()}`);
       }
     }
     console.log('Hand invalid:', hand.value);

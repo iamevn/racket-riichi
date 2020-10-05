@@ -64,6 +64,10 @@
                            "chankan" "rinshan"
                            "tenhou" "chiihou"))))
         (fieldset
+         (legend "Hand Score")
+         (div ([id "putScoreHere"])
+              "This space left blank"))
+        (fieldset
          (legend "Instructions")
          (p "Type a hand into the text box and set the
              game state in the selects and checkboxes.

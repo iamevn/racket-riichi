@@ -62,17 +62,24 @@
   (->* (finished?)
        (#:dora number?)
        string?)
-  (~a (finished-han f) " han / " (finished-fu f) " fu"
+  ; TODO titlecase where appropriate (finished-types and short-yaku-id maybe)
+  (~a (if (equal? (finished-type f) 'yakuman)
+          ""
+          (~a (finished-han f) " han / " (finished-fu f) " fu"))
       (if (equal? (finished-type f) 'basic)
           ""
-          (~a ": " (finished-type f)))
+          (~a (if (equal? (finished-type f) 'yakuman)
+                  "" ;TODO put "double" "triple" etc here before yakuman
+                  ": ")
+              (finished-type f)))
       "\n"
       (string-join (map (λ (p) (~a (payment-amount p) " from " (payment-target p) "\n"))
                         (finished-payment f))
                    "")
       "Yaku:\n"
       (string-join (map (λ (y) (~a (short-yaku-id y) ": " (short-yaku-value y) "\n"))
-                        (append (finished-yaku f) (if (zero? dora)
+                        (append (finished-yaku f) (if (or (zero? dora)
+                                                          (equal? (finished-type f) 'yakuman))
                                                       '()
                                                       (list (short-yaku 'dora dora)))))
                    "")))
