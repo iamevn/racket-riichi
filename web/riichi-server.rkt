@@ -12,7 +12,7 @@
 (define (hello request)
   (response/xexpr
    `(html (body (p "hello world!")
-                (br) (br) "demo page " (a ([href "demo"]) "here")))))
+                (br) (br) "build hands " (a ([href "build-hand"]) "here")))))
 
 (define (route request)
   (let* ([uri (request-uri request)]

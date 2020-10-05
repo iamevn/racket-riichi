@@ -3,9 +3,7 @@
 (provide build-hand)
 
 (require web-server/http
-         net/url-string
-         "../score-hand.rkt"
-         "hand-page.rkt")
+         net/url-string)
 
 ; link up js
 ; non-text hand builder
@@ -50,6 +48,13 @@
                            (option ([value "2z"]) "south")
                            (option ([value "3z"]) "west")
                            (option ([value "4z"]) "north")))
+              (div (label ([for "dora"]) "Dora count:")
+                   (input ([type "number"]
+                           [id "dora"]
+                           [name "dora"]
+                           [min "0"]
+                           [max "30"]
+                           [value "0"])))
               ,@(map (λ (s)
                        `(div (input ([type "checkbox"]
                                      [id ,s]))

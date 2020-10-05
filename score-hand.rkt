@@ -22,13 +22,15 @@
                            [hand hand?]) #:transparent)
 
 ; given finished tilelist/string find biggest scoring arrangement
-(define/contract (score-hand h gs)
-  (-> call-notation? gamestate? (listof finished?))
+(define/contract (score-hand h gs #:dora [dora 0])
+  (->* (call-notation? gamestate?)
+       (#:dora number?)
+       (listof finished?))
   (let ([hands (make-call-notation-hands h)])
     (if (empty? hands) (raise-argument-error 'score-hand
                                              "finished hand"
                                              h)
-        (let* ([scorings (map (curryr make-scoring gs) hands)]
+        (let* ([scorings (map (curryr make-scoring gs #:dora dora) hands)]
                [basepoints (map count-basepoints scorings)]
                [payments (map (compose (curryr count-payment gs) first) basepoints)]
                [totals (map total-payment payments)]
@@ -56,8 +58,10 @@
 (define (pprint-finished f [out (current-output-port)])
   (display (pstring-finished f) out))
 
-(define/contract (pstring-finished f)
-  (-> finished? string?)
+(define/contract (pstring-finished f #:dora [dora 0])
+  (->* (finished?)
+       (#:dora number?)
+       string?)
   (~a (finished-han f) " han / " (finished-fu f) " fu"
       (if (equal? (finished-type f) 'basic)
           ""
@@ -68,16 +72,18 @@
                    "")
       "Yaku:\n"
       (string-join (map (λ (y) (~a (short-yaku-id y) ": " (short-yaku-value y) "\n"))
-                        (finished-yaku f))
+                        (append (finished-yaku f) (if (zero? dora)
+                                                      '()
+                                                      (list (short-yaku 'dora dora)))))
                    "")))
 
-(define (list-score-hand hsh gsh)
+(define (list-score-hand hsh gsh #:dora [dora 0])
   (map (λ (f)
          (list
           (hand->image (finished-hand f))
-          (pstring-finished f)
+          (pstring-finished f #:dora dora)
           f))
-       (score-hand hsh (gamestate-shorthand gsh))))
+       (score-hand hsh (gamestate-shorthand gsh) #:dora dora)))
 
 (define (print-score-hand hsh gsh [out (current-output-port)])
   (for-each (λ (l)

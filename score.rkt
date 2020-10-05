@@ -48,14 +48,16 @@
 
 ; hand scoring
 ; given a finished hand broken into melds and gamestate, form scoring struct
-(define/contract (make-scoring h gs)
-  (-> (and/c hand? hand-finished?) gamestate? scoring?)
+(define/contract (make-scoring h gs #:dora [dora 0])
+  (->* ((and/c hand? hand-finished?) gamestate?)
+       (#:dora number?)
+       scoring?)
   (let ([ym (match-yakuman h gs)]
         [y (match-yaku h gs)])
     (if (not (empty? ym))
         (scoring 0 0 ym)
         (scoring (count-fu h gs)
-                 (sum-han y)
+                 (+ (sum-han y) dora)
                  y))))
 
 (define/contract (count-basepoints s)

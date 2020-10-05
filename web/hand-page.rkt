@@ -15,7 +15,7 @@
   (~a "data:image/png;base64,"
       (base64-encode (convert img 'png-bytes))))
 
-(define (gen-page hand gamestate)
+(define (gen-page hand gamestate #:dora [dora 0])
   (response/xexpr
    `(html
      (body
@@ -31,4 +31,4 @@
                    (img ([src ,(~a "hand/" hand-str)]))
                    (p ,@(add-between split-text '(br)))
                    (br))))
-             (list-score-hand hand gamestate))))))
+             (list-score-hand hand gamestate #:dora dora))))))

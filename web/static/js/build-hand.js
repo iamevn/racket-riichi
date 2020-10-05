@@ -132,6 +132,9 @@ window.addEventListener('load', (event) => {
       'round-' + s2w(round),
       ...Object.keys(opts).filter((k) => opts[k])];
   };
+  const countDora = () => {
+    return document.querySelector('#dora').value;
+  };
   score.addEventListener('click', (event) => {
     console.log('Hand:', hand.value);
     const hand_is_shorthand = shorthandValid(hand.value);
@@ -139,7 +142,7 @@ window.addEventListener('load', (event) => {
     if (hand_is_shorthand) {
       console.log('full:', handFull(hand.value));
       if (handFull(hand.value)) {
-        window.location.href = `../score?hand=${hand.value}&gamestate=${readGamestate()}`;
+        window.location.href = `../score?hand=${hand.value}&gamestate=${readGamestate()}&dora=${countDora()}`;
       }
     }
     console.log('Hand invalid:', hand.value);
