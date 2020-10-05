@@ -11,7 +11,8 @@
 
 (define (hello request)
   (response/xexpr
-   `(html (body (p "hello world!" (br) (br) "demo page " (a ([href "demo"]) "here"))))))
+   `(html (body (p "hello world!")
+                (br) (br) "demo page " (a ([href "demo"]) "here")))))
 
 (define (route request)
   (let* ([uri (request-uri request)]
@@ -30,15 +31,17 @@
 
 (define-runtime-path staticdir "static")
 
-(define server
-  (thread
-   (λ ()
-     (serve/servlet route
-                    #:stateless? #t
-                    #:servlet-path "/build-hand"
-                    #:servlet-regexp #rx""
-                    #:extra-files-paths (list staticdir)
-                    #:launch-browser? #t
-                    #:listen-ip #f))))
+(define port (if (getenv "PORT")
+                 (string->number (getenv "PORT"))
+                 8000))
+
+(serve/servlet route
+               #:stateless? #t
+               #:servlet-path "/"
+               #:servlet-regexp #rx""
+               #:extra-files-paths (list staticdir)
+               #:launch-browser? #f
+               #:listen-ip #f
+               #:port port)
 ; useful: /conf/refresh-servlets
 ; from https://docs.racket-lang.org/web-server/faq.html#%28part._update-servlets%29
