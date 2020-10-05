@@ -153,7 +153,9 @@ window.addEventListener('load', (event) => {
     if (hand_is_shorthand) {
       console.log('full:', handFull(hand.value));
       if (handFull(hand.value)) {
-        updatePage(`/score?hand=${hand.value}&gamestate=${readGamestate()}&dora=${countDora()}`);
+        const s = `/score?hand=${hand.value}&gamestate=${readGamestate()}&dora=${countDora()}`;
+        console.log(`Updating from ${s}`);
+        return updatePage(s);
       }
     }
     console.log('Hand invalid:', hand.value);
