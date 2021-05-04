@@ -228,6 +228,13 @@
   base-score-tests)
 
 (module+ main
-  ;'(require rackunit/gui) (test/gui full-suite)
-   (require rackunit/text-ui) (run-tests full-suite)
-  )
+  #;(begin (require rackunit/gui)
+           (test/gui full-suite))
+  (begin (require rackunit/text-ui)
+           (run-tests full-suite))
+  #;(begin (require rackunit/text-ui)
+         (require profile)
+         (profile (run-tests full-suite)))
+  #;(begin (require rackunit/text-ui)
+         (require contract-profile)
+         (contract-profile (run-tests full-suite))))
