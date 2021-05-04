@@ -17,11 +17,7 @@
     (map (λ (m)
            (if (meld-chii? m)
                '(chii 0)
-               (let ([closed? (or (and (meld-closed? m)
-                                       (gamestate-tsumo? g))
-                                  (and (meld-closed? m)
-                                       (not (equal? (meld-first m)
-                                                    (first (hand-pair h))))))]
+               (let ([closed? (meld-closed? m)]
                      [not-simple? (not (simple? (meld-first m)))]
                      [kan? (meld-kan? m)])
                  (case (list closed? not-simple? kan?)
@@ -50,7 +46,7 @@
                         (if (or (dragon? pair-tile)
                                 (equal? pair-tile (gamestate-round g))
                                 (equal? pair-tile (gamestate-seat g)))
-                            2 ; maybe 4 if scoring rule doubles up on double yakuhai wind
+                            2 ; maybe 4 if scoring rule doubles up on double yakuhai wind TODO: this is fairly standard, should implement
                             0))]
              [fu-end (cond
                        [(and (hand-closed? h)
