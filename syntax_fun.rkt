@@ -142,9 +142,10 @@
 
 (define (deps->dot project-deps)
   (define (-.rkt f) (string-trim f ".rkt" #:left? #f #:right? #t))
-  (define (replace-backslash f)
-    (string-replace f "\\" "." #:all? #t))
-  (define clean (compose replace-backslash -.rkt))
+  (define (replace-backslash f #:replacement [replacement "/"])
+    (string-replace f "\\" replacement #:all? #t))
+  (define (quote-wrap f) (~a #\" f #\"))
+  (define clean (compose quote-wrap replace-backslash))
   
   (let-values ([(nodes edges) (nodes-and-edges project-deps)])
     (write-string "digraph G {") (newline)
