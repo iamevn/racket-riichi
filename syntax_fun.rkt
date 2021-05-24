@@ -59,7 +59,10 @@
         "web\\hand.rkt"
         "web\\hand-page.rkt"
         "web\\riichi-server.rkt"
-        "web\\score-page.rkt"))
+        "web\\score-page.rkt"
+        "syntax_fun.rkt"
+        "hashlist.rkt"
+        "profile-graph.rkt"))
 
 (define (gen-project-deps)
   (for/hash ([file project-files])
@@ -126,7 +129,7 @@
 (require "profile-graph.rkt")
 (require profile-flame-graph/flame-graph)
 
-(define (graph pf #:filename [filename "profile.svg"]
+(define (graph-snapshots pf #:filename [filename "profile.svg"]
                #:args [args '()])
   (let ([tmp (make-temporary-file)])
     (with-output-to-file tmp #:exists 'replace
@@ -135,4 +138,29 @@
       (thunk (system (string-join (list* "flamegraph.pl" (path->string tmp) args)))))))
 
 #;(define snapshots (profile-snapshots gen-project-deps))
-#;(graph snapshots)
+#;(graph-snapshots snapshots)
+
+(define (deps->dot project-deps)
+  (define (-.rkt f) (string-trim f ".rkt" #:left? #f #:right? #t))
+  (define (replace-backslash f)
+    (string-replace f "\\" "." #:all? #t))
+  (define clean (compose replace-backslash -.rkt))
+  
+  (let-values ([(nodes edges) (nodes-and-edges project-deps)])
+    (write-string "digraph G {") (newline)
+    (write-string "  layout=neato") (newline)
+    (write-string "  center=\"\"") (newline)
+    (newline)
+    #;(for ([node (in-list nodes)])
+      (write-string (~a "  " (clean node) ";")) (newline))
+    (newline)
+    (for ([edge (in-list edges)])
+      (write-string (~a "  " (clean (edge-src edge))
+                        " -> " (clean (edge-dst edge))
+                        " [label=\"" (edge-id edge) "\"];"))
+      (newline))
+    (write-string "}")
+    (newline)))
+
+(with-output-to-file "module_deps.gv" #:exists 'replace
+  (thunk (deps->dot (gen-project-deps))))
