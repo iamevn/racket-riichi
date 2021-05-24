@@ -1,0 +1,872 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="534" onload="init(evt)" viewBox="0 0 1200 534" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+	}
+
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom();
+			zoom(target);
+		}
+		else if (e.target.id == "unzoom") unzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	}, false)
+
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+		return;
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x = txt.length - 2; x > 0; x--) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom() {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+		search();
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) {
+				currentSearchTerm = term;
+				search();
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (currentSearchTerm === null) return;
+		var term = currentSearchTerm;
+
+		var re = new RegExp(term, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="534.0" fill="url(#background)"  />
+<text id="title" x="600.00" y="24" >Flame Graph</text>
+<text id="details" x="10.00" y="517" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090.00" y="24" >Search</text>
+<text id="ignorecase" x="1174.00" y="24" >ic</text>
+<text id="matched" x="1090.00" y="517" > </text>
+<g id="frames">
+<g >
+<title>this-expression-source @ C:\Program Files\Racket\collects\racket\private\this-expression-source-directory.rkt:11:0 (1 samples, 0.23%)</title><rect x="1187.2" y="229" width="2.8" height="15.0" fill="rgb(245,176,7)" rx="2" ry="2" />
+<text  x="1190.24" y="239.5" ></text>
+</g>
+<g >
+<title>compilation-manager-load-handler @ C:\Program Files\Racket\collects\compiler\private\cm-minimal.rkt:142:4 (2 samples, 0.47%)</title><rect x="393.2" y="229" width="5.5" height="15.0" fill="rgb(238,41,47)" rx="2" ry="2" />
+<text  x="396.22" y="239.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\share\pkgs\drracket\drracket\private\rep.rkt:1491:15 (428 samples, 100.00%)</title><rect x="10.0" y="405" width="1180.0" height="15.0" fill="rgb(236,117,7)" rx="2" ry="2" />
+<text  x="13.00" y="415.5" >C:\Program Files\Racket\share\pkgs\drracket\drracket\private\rep.rkt:1491:15</text>
+</g>
+<g >
+<title>body of &quot;C:\Program Files\Racket\collects\racket\private\class-internal.rkt&quot; @  (1 samples, 0.23%)</title><rect x="362.9" y="229" width="2.8" height="15.0" fill="rgb(225,9,28)" rx="2" ry="2" />
+<text  x="365.90" y="239.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\file.rkt:584:3 (1 samples, 0.23%)</title><rect x="387.7" y="197" width="2.8" height="15.0" fill="rgb(250,223,45)" rx="2" ry="2" />
+<text  x="390.71" y="207.5" ></text>
+</g>
+<g >
+<title>read-pkgs-db @ C:\Program Files\Racket\collects\pkg\path.rkt:62:0 (3 samples, 0.70%)</title><rect x="346.4" y="85" width="8.2" height="15.0" fill="rgb(205,19,17)" rx="2" ry="2" />
+<text  x="349.36" y="95.5" ></text>
+</g>
+<g >
+<title>path-&gt;pkg+subpath+collect* @ C:\Program Files\Racket\collects\pkg\path.rkt:75:0 (1 samples, 0.23%)</title><rect x="225.0" y="149" width="2.8" height="15.0" fill="rgb(208,203,48)" rx="2" ry="2" />
+<text  x="228.05" y="159.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\compiler\cm.rkt:53:47 (2 samples, 0.47%)</title><rect x="266.4" y="181" width="5.5" height="15.0" fill="rgb(250,75,33)" rx="2" ry="2" />
+<text  x="269.40" y="191.5" ></text>
+</g>
+<g >
+<title>build-subcontract-late-negs @ C:\Program Files\Racket\collects\racket\contract\private\arrow-higher-order.rkt:711:0 (1 samples, 0.23%)</title><rect x="368.4" y="165" width="2.8" height="15.0" fill="rgb(229,6,18)" rx="2" ry="2" />
+<text  x="371.41" y="175.5" ></text>
+</g>
+<g >
+<title>stx-pair? @ C:\Program Files\Racket\collects\racket\private\stx.rkt:40:4 (1 samples, 0.23%)</title><rect x="1173.5" y="197" width="2.7" height="15.0" fill="rgb(253,93,1)" rx="2" ry="2" />
+<text  x="1176.46" y="207.5" ></text>
+</g>
+<g >
+<title>get-preference @ C:\Program Files\Racket\collects\racket\file.rkt:566:0 (1 samples, 0.23%)</title><rect x="387.7" y="213" width="2.8" height="15.0" fill="rgb(249,79,29)" rx="2" ry="2" />
+<text  x="390.71" y="223.5" ></text>
+</g>
+<g >
+<title>find-relevant-directory-records @ C:\Program Files\Racket\collects\setup\getinfo.rkt:289:0 (4 samples, 0.93%)</title><rect x="376.7" y="133" width="11.0" height="15.0" fill="rgb(231,77,0)" rx="2" ry="2" />
+<text  x="379.68" y="143.5" ></text>
+</g>
+<g >
+<title>body of &quot;C:\Program Files\Racket\share\pkgs\string-constants-lib\string-constants\string-constant.rkt&quot; @  (5 samples, 1.17%)</title><rect x="376.7" y="229" width="13.8" height="15.0" fill="rgb(213,126,36)" rx="2" ry="2" />
+<text  x="379.68" y="239.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\file.rkt:437:8 (1 samples, 0.23%)</title><rect x="387.7" y="133" width="2.8" height="15.0" fill="rgb(233,92,22)" rx="2" ry="2" />
+<text  x="390.71" y="143.5" ></text>
+</g>
+<g >
+<title>path-&gt;pkg @ C:\Program Files\Racket\collects\pkg\path.rkt:193:0 (27 samples, 6.31%)</title><rect x="271.9" y="197" width="74.5" height="15.0" fill="rgb(232,208,24)" rx="2" ry="2" />
+<text  x="274.92" y="207.5" >path-&gt;pk..</text>
+</g>
+<g >
+<title>call-with-file-lock @ C:\Program Files\Racket\collects\racket\file.rkt:426:0 (1 samples, 0.23%)</title><rect x="387.7" y="149" width="2.8" height="15.0" fill="rgb(213,106,7)" rx="2" ry="2" />
+<text  x="390.71" y="159.5" ></text>
+</g>
+<g >
+<title>skip-path? @ C:\Program Files\Racket\share\pkgs\drracket\drracket\private\eval-helpers-and-pref-init.rkt:122:8 (43 samples, 10.05%)</title><rect x="236.1" y="213" width="118.5" height="15.0" fill="rgb(206,85,10)" rx="2" ry="2" />
+<text  x="239.07" y="223.5" >skip-path? @ C..</text>
+</g>
+<g >
+<title>read-pkg-db/cached @ C:\Program Files\Racket\collects\pkg\path.rkt:102:4 (1 samples, 0.23%)</title><rect x="225.0" y="133" width="2.8" height="15.0" fill="rgb(227,81,48)" rx="2" ry="2" />
+<text  x="228.05" y="143.5" ></text>
+</g>
+<g >
+<title>body of &quot;C:\Program Files\Racket\collects\racket\port.rkt&quot; @  (1 samples, 0.23%)</title><rect x="357.4" y="229" width="2.7" height="15.0" fill="rgb(215,49,10)" rx="2" ry="2" />
+<text  x="360.38" y="239.5" ></text>
+</g>
+<g >
+<title>hash-ref! @ C:\Program Files\Racket\collects\racket\private\more-scheme.rkt:377:2 (1 samples, 0.23%)</title><rect x="1167.9" y="197" width="2.8" height="15.0" fill="rgb(224,179,47)" rx="2" ry="2" />
+<text  x="1170.94" y="207.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\setup\path-to-relative.rkt:63:6 (1 samples, 0.23%)</title><rect x="225.0" y="181" width="2.8" height="15.0" fill="rgb(211,179,32)" rx="2" ry="2" />
+<text  x="228.05" y="191.5" ></text>
+</g>
+<g >
+<title>do-partial-app @ C:\Program Files\Racket\collects\racket\contract\private\provide.rkt:521:0 (1 samples, 0.23%)</title><rect x="354.6" y="213" width="2.8" height="15.0" fill="rgb(213,34,44)" rx="2" ry="2" />
+<text  x="357.63" y="223.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\compiler\cm.rkt:51:44 (2 samples, 0.47%)</title><rect x="260.9" y="181" width="5.5" height="15.0" fill="rgb(219,34,17)" rx="2" ry="2" />
+<text  x="263.89" y="191.5" ></text>
+</g>
+<g >
+<title>go @ C:\Program Files\Racket\collects\racket\private\qq-and-or.rkt:50:20 (1 samples, 0.23%)</title><rect x="1176.2" y="229" width="2.8" height="15.0" fill="rgb(234,32,12)" rx="2" ry="2" />
+<text  x="1179.21" y="239.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\base.rkt:42:0 (1 samples, 0.23%)</title><rect x="222.3" y="213" width="2.7" height="15.0" fill="rgb(216,133,50)" rx="2" ry="2" />
+<text  x="225.29" y="223.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\compiler\cm.rkt:53:47 (2 samples, 0.47%)</title><rect x="260.9" y="165" width="5.5" height="15.0" fill="rgb(209,65,50)" rx="2" ry="2" />
+<text  x="263.89" y="175.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\arrow-val-first.rkt:555:3 (3 samples, 0.70%)</title><rect x="346.4" y="181" width="8.2" height="15.0" fill="rgb(240,213,4)" rx="2" ry="2" />
+<text  x="349.36" y="191.5" ></text>
+</g>
+<g >
+<title>build-subcontract-late-negs @ C:\Program Files\Racket\collects\racket\contract\private\arrow-higher-order.rkt:711:0 (1 samples, 0.23%)</title><rect x="368.4" y="197" width="2.8" height="15.0" fill="rgb(209,169,6)" rx="2" ry="2" />
+<text  x="371.41" y="207.5" ></text>
+</g>
+<g >
+<title>body of &quot;C:\Program Files\Racket\collects\racket\dict.rkt&quot; @  (1 samples, 0.23%)</title><rect x="354.6" y="229" width="2.8" height="15.0" fill="rgb(210,215,0)" rx="2" ry="2" />
+<text  x="357.63" y="239.5" ></text>
+</g>
+<g >
+<title>build-??-args @ C:\Program Files\Racket\collects\racket\contract\private\arr-i.rkt:30:0 (1 samples, 0.23%)</title><rect x="354.6" y="37" width="2.8" height="15.0" fill="rgb(207,217,38)" rx="2" ry="2" />
+<text  x="357.63" y="47.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\share\pkgs\string-constants-lib\string-constants\string-constant.rkt:47:8 (4 samples, 0.93%)</title><rect x="376.7" y="181" width="11.0" height="15.0" fill="rgb(216,117,8)" rx="2" ry="2" />
+<text  x="379.68" y="191.5" ></text>
+</g>
+<g >
+<title>sub-path? @ C:\Program Files\Racket\collects\pkg\path.rkt:85:2 (6 samples, 1.40%)</title><rect x="329.8" y="165" width="16.6" height="15.0" fill="rgb(249,5,14)" rx="2" ry="2" />
+<text  x="332.81" y="175.5" ></text>
+</g>
+<g >
+<title>*init @ C:\Program Files\Racket\share\pkgs\drracket\drracket\private\module-language.rkt:463:8 (428 samples, 100.00%)</title><rect x="10.0" y="357" width="1180.0" height="15.0" fill="rgb(220,22,27)" rx="2" ry="2" />
+<text  x="13.00" y="367.5" >*init @ C:\Program Files\Racket\share\pkgs\drracket\drracket\private\module-language.rkt:463:8</text>
+</g>
+<g >
+<title>populate-table! @ C:\Program Files\Racket\collects\setup\getinfo.rkt:221:0 (4 samples, 0.93%)</title><rect x="376.7" y="117" width="11.0" height="15.0" fill="rgb(237,151,36)" rx="2" ry="2" />
+<text  x="379.68" y="127.5" ></text>
+</g>
+<g >
+<title>all (428 samples, 100%)</title><rect x="10.0" y="485" width="1180.0" height="15.0" fill="rgb(246,181,20)" rx="2" ry="2" />
+<text  x="13.00" y="495.5" ></text>
+</g>
+<g >
+<title>path-adjust-extension @ C:\Program Files\Racket\collects\racket\private\path.rkt:94:4 (1 samples, 0.23%)</title><rect x="260.9" y="149" width="2.7" height="15.0" fill="rgb(230,202,18)" rx="2" ry="2" />
+<text  x="263.89" y="159.5" ></text>
+</g>
+<g >
+<title>pkg-directory* @ C:\Program Files\Racket\collects\pkg\private\pkg-db.rkt:175:0 (3 samples, 0.70%)</title><rect x="346.4" y="117" width="8.2" height="15.0" fill="rgb(221,21,22)" rx="2" ry="2" />
+<text  x="349.36" y="127.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\pkg\path.rkt:56:12 (3 samples, 0.70%)</title><rect x="346.4" y="69" width="8.2" height="15.0" fill="rgb(225,66,49)" rx="2" ry="2" />
+<text  x="349.36" y="79.5" ></text>
+</g>
+<g >
+<title>body of &quot;C:\Program Files\Racket\share\pkgs\draw-lib\racket\draw\unsafe\glib.rkt&quot; @  (1 samples, 0.23%)</title><rect x="371.2" y="229" width="2.7" height="15.0" fill="rgb(225,42,39)" rx="2" ry="2" />
+<text  x="374.17" y="239.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\orc.rkt:88:2 (1 samples, 0.23%)</title><rect x="354.6" y="69" width="2.8" height="15.0" fill="rgb(236,46,47)" rx="2" ry="2" />
+<text  x="357.63" y="79.5" ></text>
+</g>
+<g >
+<title>default-language @ C:\Program Files\Racket\share\pkgs\string-constants-lib\string-constants\string-constant.rkt:71:0 (4 samples, 0.93%)</title><rect x="376.7" y="213" width="11.0" height="15.0" fill="rgb(244,32,10)" rx="2" ry="2" />
+<text  x="379.68" y="223.5" ></text>
+</g>
+<g >
+<title>build-input-port @ C:\Program Files\Racket\share\pkgs\gui-lib\mred\private\snipfile.rkt:324:2 (2 samples, 0.47%)</title><rect x="1181.7" y="213" width="5.5" height="15.0" fill="rgb(249,44,30)" rx="2" ry="2" />
+<text  x="1184.73" y="223.5" ></text>
+</g>
+<g >
+<title>path-adjust-extension @ C:\Program Files\Racket\collects\racket\private\path.rkt:94:4 (2 samples, 0.47%)</title><rect x="266.4" y="165" width="5.5" height="15.0" fill="rgb(241,88,43)" rx="2" ry="2" />
+<text  x="269.40" y="175.5" ></text>
+</g>
+<g >
+<title>get-table @ C:\Program Files\Racket\share\pkgs\string-constants-lib\string-constants\string-constant.rkt:44:4 (4 samples, 0.93%)</title><rect x="376.7" y="197" width="11.0" height="15.0" fill="rgb(250,134,44)" rx="2" ry="2" />
+<text  x="379.68" y="207.5" ></text>
+</g>
+<g >
+<title>contract-pos/neg-doubling.2/proc @ C:\Program Files\Racket\collects\racket\contract\private\guts.rkt:1019:0 (1 samples, 0.23%)</title><rect x="354.6" y="117" width="2.8" height="15.0" fill="rgb(237,128,27)" rx="2" ry="2" />
+<text  x="357.63" y="127.5" ></text>
+</g>
+<g >
+<title>file-stamp-in-paths @ C:\Program Files\Racket\collects\compiler\cm.rkt:25:0 (13 samples, 3.04%)</title><rect x="236.1" y="197" width="35.8" height="15.0" fill="rgb(222,127,16)" rx="2" ry="2" />
+<text  x="239.07" y="207.5" >fil..</text>
+</g>
+<g >
+<title>body of &quot;C:\Users\Evan\Desktop\programming\racket-riichi\syntax_fun.rkt&quot; @  (428 samples, 100.00%)</title><rect x="10.0" y="309" width="1180.0" height="15.0" fill="rgb(229,190,52)" rx="2" ry="2" />
+<text  x="13.00" y="319.5" >body of "C:\Users\Evan\Desktop\programming\racket-riichi\syntax_fun.rkt" @ </text>
+</g>
+<g >
+<title>read-pkgs-db @ C:\Program Files\Racket\collects\pkg\path.rkt:62:0 (1 samples, 0.23%)</title><rect x="225.0" y="117" width="2.8" height="15.0" fill="rgb(228,34,23)" rx="2" ry="2" />
+<text  x="228.05" y="127.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\promise.rkt:65:10 (4 samples, 0.93%)</title><rect x="316.0" y="133" width="11.1" height="15.0" fill="rgb(221,229,9)" rx="2" ry="2" />
+<text  x="319.03" y="143.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\share\pkgs\drracket\drracket\private\eval-helpers-and-pref-init.rkt:153:9 (43 samples, 10.05%)</title><rect x="236.1" y="229" width="118.5" height="15.0" fill="rgb(221,227,26)" rx="2" ry="2" />
+<text  x="239.07" y="239.5" >C:\Program Fil..</text>
+</g>
+<g >
+<title>body of &quot;C:\Program Files\Racket\collects\racket\unit.rkt&quot; @  (1 samples, 0.23%)</title><rect x="365.7" y="229" width="2.7" height="15.0" fill="rgb(254,128,5)" rx="2" ry="2" />
+<text  x="368.65" y="239.5" ></text>
+</g>
+<g >
+<title>call-with-file-lock @ C:\Program Files\Racket\collects\racket\file.rkt:426:0 (3 samples, 0.70%)</title><rect x="346.4" y="149" width="8.2" height="15.0" fill="rgb(254,217,24)" rx="2" ry="2" />
+<text  x="349.36" y="159.5" ></text>
+</g>
+<g >
+<title>loop @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\private\syncheck\contract-traversal.rkt:22:2 (1 samples, 0.23%)</title><rect x="398.7" y="197" width="2.8" height="15.0" fill="rgb(238,32,43)" rx="2" ry="2" />
+<text  x="401.74" y="207.5" ></text>
+</g>
+<g >
+<title>document-variable @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\private\syncheck\traversals.rkt:1393:0 (273 samples, 63.79%)</title><rect x="401.5" y="197" width="752.7" height="15.0" fill="rgb(215,12,5)" rx="2" ry="2" />
+<text  x="404.50" y="207.5" >document-variable @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\private\syncheck\trave..</text>
+</g>
+<g >
+<title>body of &quot;C:\Users\Evan\AppData\Roaming\Racket\8.0\pkgs\rebellion\base\variant.rkt&quot; @  (1 samples, 0.23%)</title><rect x="390.5" y="229" width="2.7" height="15.0" fill="rgb(221,184,41)" rx="2" ry="2" />
+<text  x="393.47" y="239.5" ></text>
+</g>
+<g >
+<title>make-base-empty-namespace @ C:\Program Files\Racket\collects\racket\private\namespace.rkt:18:2 (1 samples, 0.23%)</title><rect x="1179.0" y="213" width="2.7" height="15.0" fill="rgb(247,21,40)" rx="2" ry="2" />
+<text  x="1181.97" y="223.5" ></text>
+</g>
+<g >
+<title>find-relevant-directories @ C:\Program Files\Racket\collects\setup\getinfo.rkt:286:0 (4 samples, 0.93%)</title><rect x="376.7" y="149" width="11.0" height="15.0" fill="rgb(223,33,30)" rx="2" ry="2" />
+<text  x="379.68" y="159.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\promise.rkt:45:2 (4 samples, 0.93%)</title><rect x="316.0" y="149" width="11.1" height="15.0" fill="rgb(251,89,39)" rx="2" ry="2" />
+<text  x="319.03" y="159.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\guts.rkt:886:2 (1 samples, 0.23%)</title><rect x="354.6" y="197" width="2.8" height="15.0" fill="rgb(205,212,1)" rx="2" ry="2" />
+<text  x="357.63" y="207.5" ></text>
+</g>
+<g >
+<title>stx-pair? @ C:\Program Files\Racket\collects\racket\private\stx.rkt:40:4 (1 samples, 0.23%)</title><rect x="1170.7" y="181" width="2.8" height="15.0" fill="rgb(224,176,26)" rx="2" ry="2" />
+<text  x="1173.70" y="191.5" ></text>
+</g>
+<g >
+<title>body of &quot;C:\Program Files\Racket\collects\racket\pretty.rkt&quot; @  (1 samples, 0.23%)</title><rect x="360.1" y="229" width="2.8" height="15.0" fill="rgb(219,165,54)" rx="2" ry="2" />
+<text  x="363.14" y="239.5" ></text>
+</g>
+<g >
+<title>show-content @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\check-syntax.rkt:56:0 (428 samples, 100.00%)</title><rect x="10.0" y="245" width="1180.0" height="15.0" fill="rgb(244,184,25)" rx="2" ry="2" />
+<text  x="13.00" y="255.5" >show-content @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\check-syntax.rkt:56:0</text>
+</g>
+<g >
+<title>cross-system-type @ C:\Program Files\Racket\collects\setup\cross-system.rkt:54:2 (1 samples, 0.23%)</title><rect x="371.2" y="213" width="2.7" height="15.0" fill="rgb(227,72,9)" rx="2" ry="2" />
+<text  x="374.17" y="223.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\list.rkt:804:2 (1 samples, 0.23%)</title><rect x="354.6" y="165" width="2.8" height="15.0" fill="rgb(246,154,34)" rx="2" ry="2" />
+<text  x="357.63" y="175.5" ></text>
+</g>
+<g >
+<title>call-with-break-parameterization @ C:\Program Files\Racket\collects\racket\private\more-scheme.rkt:148:2 (428 samples, 100.00%)</title><rect x="10.0" y="373" width="1180.0" height="15.0" fill="rgb(239,140,36)" rx="2" ry="2" />
+<text  x="13.00" y="383.5" >call-with-break-parameterization @ C:\Program Files\Racket\collects\racket\private\more-scheme.rkt:148:2</text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\guts.rkt:1006:36 (1 samples, 0.23%)</title><rect x="354.6" y="101" width="2.8" height="15.0" fill="rgb(212,96,51)" rx="2" ry="2" />
+<text  x="357.63" y="111.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\share\pkgs\drracket\drracket\private\rep.rkt:1178:9 (428 samples, 100.00%)</title><rect x="10.0" y="389" width="1180.0" height="15.0" fill="rgb(226,92,27)" rx="2" ry="2" />
+<text  x="13.00" y="399.5" >C:\Program Files\Racket\share\pkgs\drracket\drracket\private\rep.rkt:1178:9</text>
+</g>
+<g >
+<title>stx-cdr @ C:\Program Files\Racket\collects\racket\private\stx.rkt:74:4 (1 samples, 0.23%)</title><rect x="1176.2" y="197" width="2.8" height="15.0" fill="rgb(223,67,19)" rx="2" ry="2" />
+<text  x="1179.21" y="207.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\share\pkgs\gui-lib\mred\private\wx\common\queue.rkt:486:32 (428 samples, 100.00%)</title><rect x="10.0" y="437" width="1180.0" height="15.0" fill="rgb(239,16,14)" rx="2" ry="2" />
+<text  x="13.00" y="447.5" >C:\Program Files\Racket\share\pkgs\gui-lib\mred\private\wx\common\queue.rkt:486:32</text>
+</g>
+<g >
+<title>level+tail+mod-loop @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\private\syncheck\traversals.rkt:184:2 (8 samples, 1.87%)</title><rect x="1154.2" y="213" width="22.0" height="15.0" fill="rgb(223,87,23)" rx="2" ry="2" />
+<text  x="1157.16" y="223.5" >l..</text>
+</g>
+<g >
+<title>pkg-directory** @ C:\Program Files\Racket\collects\pkg\private\pkg-db.rkt:167:0 (3 samples, 0.70%)</title><rect x="346.4" y="165" width="8.2" height="15.0" fill="rgb(240,229,17)" rx="2" ry="2" />
+<text  x="349.36" y="175.5" ></text>
+</g>
+<g >
+<title>find-user-pkgs-dir @ C:\Program Files\Racket\collects\setup\private\dirs.rkt:334:0 (1 samples, 0.23%)</title><rect x="313.3" y="165" width="2.7" height="15.0" fill="rgb(205,123,33)" rx="2" ry="2" />
+<text  x="316.27" y="175.5" ></text>
+</g>
+<g >
+<title>for-loop @ syntax_fun.rkt:11:0 (428 samples, 100.00%)</title><rect x="10.0" y="293" width="1180.0" height="15.0" fill="rgb(238,14,21)" rx="2" ry="2" />
+<text  x="13.00" y="303.5" >for-loop @ syntax_fun.rkt:11:0</text>
+</g>
+<g >
+<title>find-pkgs-dir8 @ C:\Program Files\Racket\collects\setup\private\dirs.rkt:187:13 (4 samples, 0.93%)</title><rect x="316.0" y="117" width="11.1" height="15.0" fill="rgb(231,77,43)" rx="2" ry="2" />
+<text  x="319.03" y="127.5" ></text>
+</g>
+<g >
+<title>do-ref @ C:\Program Files\Racket\collects\syntax\private\id-table.rkt:77:2 (1 samples, 0.23%)</title><rect x="1165.2" y="181" width="2.7" height="15.0" fill="rgb(242,89,19)" rx="2" ry="2" />
+<text  x="1168.19" y="191.5" ></text>
+</g>
+<g >
+<title>compute-cross! @ C:\Program Files\Racket\collects\setup\cross-system.rkt:12:0 (1 samples, 0.23%)</title><rect x="371.2" y="197" width="2.7" height="15.0" fill="rgb(246,52,43)" rx="2" ry="2" />
+<text  x="374.17" y="207.5" ></text>
+</g>
+<g >
+<title>call-with-stack-checkpoint @ C:\Program Files\Racket\share\pkgs\drracket\drracket\private\stack-checkpoint.rkt:82:0 (428 samples, 100.00%)</title><rect x="10.0" y="341" width="1180.0" height="15.0" fill="rgb(232,166,27)" rx="2" ry="2" />
+<text  x="13.00" y="351.5" >call-with-stack-checkpoint @ C:\Program Files\Racket\share\pkgs\drracket\drracket\private\stack-checkpoint.rkt:82:0</text>
+</g>
+<g >
+<title>pkg-directory/use-cache @ C:\Program Files\Racket\share\pkgs\drracket\drracket\private\eval-helpers-and-pref-init.rkt:94:4 (3 samples, 0.70%)</title><rect x="346.4" y="197" width="8.2" height="15.0" fill="rgb(232,56,51)" rx="2" ry="2" />
+<text  x="349.36" y="207.5" ></text>
+</g>
+<g >
+<title>syntax-quote-source @ C:\Program Files\Racket\collects\syntax\location.rkt:25:2 (1 samples, 0.23%)</title><rect x="225.0" y="197" width="2.8" height="15.0" fill="rgb(214,153,8)" rx="2" ry="2" />
+<text  x="228.05" y="207.5" ></text>
+</g>
+<g >
+<title>path-&gt;spec @ C:\Program Files\Racket\collects\setup\collects.rkt:11:0 (1 samples, 0.23%)</title><rect x="1187.2" y="213" width="2.8" height="15.0" fill="rgb(205,11,18)" rx="2" ry="2" />
+<text  x="1190.24" y="223.5" ></text>
+</g>
+<g >
+<title>add-id @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\private\syncheck\traversals.rkt:1468:0 (1 samples, 0.23%)</title><rect x="1165.2" y="197" width="2.7" height="15.0" fill="rgb(208,69,47)" rx="2" ry="2" />
+<text  x="1168.19" y="207.5" ></text>
+</g>
+<g >
+<title>call-with-break-parameterization @ C:\Program Files\Racket\collects\racket\private\more-scheme.rkt:148:2 (428 samples, 100.00%)</title><rect x="10.0" y="453" width="1180.0" height="15.0" fill="rgb(214,40,30)" rx="2" ry="2" />
+<text  x="13.00" y="463.5" >call-with-break-parameterization @ C:\Program Files\Racket\collects\racket\private\more-scheme.rkt:148:2</text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\struct-prop.rkt:15:2 (1 samples, 0.23%)</title><rect x="354.6" y="181" width="2.8" height="15.0" fill="rgb(219,57,34)" rx="2" ry="2" />
+<text  x="357.63" y="191.5" ></text>
+</g>
+<g >
+<title>body of &quot;C:\Program Files\Racket\collects\syntax\boundmap.rkt&quot; @  (1 samples, 0.23%)</title><rect x="368.4" y="229" width="2.8" height="15.0" fill="rgb(208,159,41)" rx="2" ry="2" />
+<text  x="371.41" y="239.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\vector.rkt:494:4 (1 samples, 0.23%)</title><rect x="354.6" y="133" width="2.8" height="15.0" fill="rgb(249,116,48)" rx="2" ry="2" />
+<text  x="357.63" y="143.5" ></text>
+</g>
+<g >
+<title>build-&gt;*-plus-one-acceptor @ C:\Program Files\Racket\collects\racket\contract\private\arrow-val-first.rkt:518:0 (1 samples, 0.23%)</title><rect x="368.4" y="213" width="2.8" height="15.0" fill="rgb(225,168,43)" rx="2" ry="2" />
+<text  x="371.41" y="223.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\pkg\path.rkt:56:12 (1 samples, 0.23%)</title><rect x="225.0" y="101" width="2.8" height="15.0" fill="rgb(222,176,50)" rx="2" ry="2" />
+<text  x="228.05" y="111.5" ></text>
+</g>
+<g >
+<title>read-pkg-db/cached @ C:\Program Files\Racket\collects\pkg\path.rkt:102:4 (1 samples, 0.23%)</title><rect x="327.1" y="165" width="2.7" height="15.0" fill="rgb(211,139,34)" rx="2" ry="2" />
+<text  x="330.06" y="175.5" ></text>
+</g>
+<g >
+<title>syntax-quote-srcloc @ C:\Program Files\Racket\collects\syntax\location.rkt:40:2 (1 samples, 0.23%)</title><rect x="225.0" y="213" width="2.8" height="15.0" fill="rgb(235,74,13)" rx="2" ry="2" />
+<text  x="228.05" y="223.5" ></text>
+</g>
+<g >
+<title>try-file-time @ C:\Program Files\Racket\collects\compiler\private\cm-file.rkt:12:0 (1 samples, 0.23%)</title><rect x="263.6" y="149" width="2.8" height="15.0" fill="rgb(212,218,23)" rx="2" ry="2" />
+<text  x="266.64" y="159.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\share\pkgs\drracket\drracket\private\stack-checkpoint.rkt:115:30 (428 samples, 100.00%)</title><rect x="10.0" y="325" width="1180.0" height="15.0" fill="rgb(217,182,10)" rx="2" ry="2" />
+<text  x="13.00" y="335.5" >C:\Program Files\Racket\share\pkgs\drracket\drracket\private\stack-checkpoint.rkt:115:30</text>
+</g>
+<g >
+<title>loop @ C:\Program Files\Racket\collects\racket\private\path.rkt:53:21 (6 samples, 1.40%)</title><rect x="329.8" y="133" width="16.6" height="15.0" fill="rgb(210,43,49)" rx="2" ry="2" />
+<text  x="332.81" y="143.5" ></text>
+</g>
+<g >
+<title>check-list @ C:\Program Files\Racket\collects\racket\private\for.rkt:690:2 (1 samples, 0.23%)</title><rect x="368.4" y="149" width="2.8" height="15.0" fill="rgb(245,180,17)" rx="2" ry="2" />
+<text  x="371.41" y="159.5" ></text>
+</g>
+<g >
+<title>thread-0 (428 samples, 100.00%)</title><rect x="10.0" y="469" width="1180.0" height="15.0" fill="rgb(222,33,50)" rx="2" ry="2" />
+<text  x="13.00" y="479.5" >thread-0</text>
+</g>
+<g >
+<title>loop @ C:\Program Files\Racket\collects\racket\private\stxcase.rkt:20:7 (1 samples, 0.23%)</title><rect x="1170.7" y="197" width="2.8" height="15.0" fill="rgb(214,10,32)" rx="2" ry="2" />
+<text  x="1173.70" y="207.5" ></text>
+</g>
+<g >
+<title>expanded-expression @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\private\syncheck\traversals.rkt:48:10 (282 samples, 65.89%)</title><rect x="398.7" y="229" width="777.5" height="15.0" fill="rgb(205,127,36)" rx="2" ry="2" />
+<text  x="401.74" y="239.5" >expanded-expression @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\private\syncheck\traver..</text>
+</g>
+<g >
+<title>body of &quot;C:\Program Files\Racket\share\pkgs\string-constants-lib\string-constants\private\simplified-chinese-string-constants.rkt&quot; @  (1 samples, 0.23%)</title><rect x="373.9" y="229" width="2.8" height="15.0" fill="rgb(228,178,32)" rx="2" ry="2" />
+<text  x="376.93" y="239.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\guts.rkt:822:5 (1 samples, 0.23%)</title><rect x="354.6" y="85" width="2.8" height="15.0" fill="rgb(244,193,5)" rx="2" ry="2" />
+<text  x="357.63" y="95.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\private\stxparam.rkt:61:2 (5 samples, 1.17%)</title><rect x="214.0" y="229" width="13.8" height="15.0" fill="rgb(220,126,39)" rx="2" ry="2" />
+<text  x="217.02" y="239.5" ></text>
+</g>
+<g >
+<title>path-&gt;pkg+subpath+collect* @ C:\Program Files\Racket\collects\pkg\path.rkt:75:0 (27 samples, 6.31%)</title><rect x="271.9" y="181" width="74.5" height="15.0" fill="rgb(209,117,53)" rx="2" ry="2" />
+<text  x="274.92" y="191.5" >path-&gt;pk..</text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\arrow-val-first.rkt:555:3 (428 samples, 100.00%)</title><rect x="10.0" y="261" width="1180.0" height="15.0" fill="rgb(244,126,32)" rx="2" ry="2" />
+<text  x="13.00" y="271.5" >C:\Program Files\Racket\collects\racket\contract\private\arrow-val-first.rkt:555:3</text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\arrow-higher-order.rkt:575:2 (1 samples, 0.23%)</title><rect x="368.4" y="181" width="2.8" height="15.0" fill="rgb(230,90,5)" rx="2" ry="2" />
+<text  x="371.41" y="191.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\guts.rkt:835:10 (1 samples, 0.23%)</title><rect x="354.6" y="149" width="2.8" height="15.0" fill="rgb(251,168,40)" rx="2" ry="2" />
+<text  x="357.63" y="159.5" ></text>
+</g>
+<g >
+<title>check-extension-call @ C:\Program Files\Racket\collects\racket\private\path.rkt:73:4 (1 samples, 0.23%)</title><rect x="260.9" y="133" width="2.7" height="15.0" fill="rgb(212,104,36)" rx="2" ry="2" />
+<text  x="263.89" y="143.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\share\pkgs\gui-lib\mred\private\wx\common\queue.rkt:435:6 (428 samples, 100.00%)</title><rect x="10.0" y="421" width="1180.0" height="15.0" fill="rgb(237,130,48)" rx="2" ry="2" />
+<text  x="13.00" y="431.5" >C:\Program Files\Racket\share\pkgs\gui-lib\mred\private\wx\common\queue.rkt:435:6</text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\promise.rkt:45:2 (4 samples, 0.93%)</title><rect x="316.0" y="101" width="11.1" height="15.0" fill="rgb(221,145,16)" rx="2" ry="2" />
+<text  x="319.03" y="111.5" ></text>
+</g>
+<g >
+<title>do-partial-app @ C:\Program Files\Racket\collects\racket\contract\private\provide.rkt:521:0 (1 samples, 0.23%)</title><rect x="357.4" y="213" width="2.7" height="15.0" fill="rgb(220,111,49)" rx="2" ry="2" />
+<text  x="360.38" y="223.5" ></text>
+</g>
+<g >
+<title>normal-case-path @ C:\Program Files\Racket\collects\racket\private\path.rkt:20:4 (6 samples, 1.40%)</title><rect x="329.8" y="149" width="16.6" height="15.0" fill="rgb(224,145,28)" rx="2" ry="2" />
+<text  x="332.81" y="159.5" ></text>
+</g>
+<g >
+<title>for-loop @ syntax_fun.rkt:44:2 (428 samples, 100.00%)</title><rect x="10.0" y="277" width="1180.0" height="15.0" fill="rgb(222,117,8)" rx="2" ry="2" />
+<text  x="13.00" y="287.5" >for-loop @ syntax_fun.rkt:44:2</text>
+</g>
+<g >
+<title>get-pkgs-search-dirs @ C:\Program Files\Racket\collects\setup\private\dirs.rkt:169:7 (4 samples, 0.93%)</title><rect x="316.0" y="165" width="11.1" height="15.0" fill="rgb(244,4,2)" rx="2" ry="2" />
+<text  x="319.03" y="175.5" ></text>
+</g>
+<g >
+<title>text-editor-load-handler @ C:\Program Files\Racket\share\pkgs\gui-lib\mred\private\snipfile.rkt:252:2 (2 samples, 0.47%)</title><rect x="1181.7" y="229" width="5.5" height="15.0" fill="rgb(250,116,35)" rx="2" ry="2" />
+<text  x="1184.73" y="239.5" ></text>
+</g>
+<g >
+<title>make-base-namespace @ C:\Program Files\Racket\collects\racket\private\namespace.rkt:27:2 (1 samples, 0.23%)</title><rect x="1179.0" y="229" width="2.7" height="15.0" fill="rgb(231,165,27)" rx="2" ry="2" />
+<text  x="1181.97" y="239.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\file.rkt:469:4 (1 samples, 0.23%)</title><rect x="387.7" y="165" width="2.8" height="15.0" fill="rgb(235,96,15)" rx="2" ry="2" />
+<text  x="390.71" y="175.5" ></text>
+</g>
+<g >
+<title>package-info @ C:\Program Files\Racket\collects\pkg\private\pkg-db.rkt:68:0 (3 samples, 0.70%)</title><rect x="346.4" y="101" width="8.2" height="15.0" fill="rgb(228,99,30)" rx="2" ry="2" />
+<text  x="349.36" y="111.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\promise.rkt:65:10 (4 samples, 0.93%)</title><rect x="316.0" y="85" width="11.1" height="15.0" fill="rgb(241,200,52)" rx="2" ry="2" />
+<text  x="319.03" y="95.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\syntax\wrap-modbeg.rkt:46:4 (3 samples, 0.70%)</title><rect x="227.8" y="229" width="8.3" height="15.0" fill="rgb(248,15,16)" rx="2" ry="2" />
+<text  x="230.80" y="239.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\arrow-val-first.rkt:489:18 (4 samples, 0.93%)</title><rect x="376.7" y="165" width="11.0" height="15.0" fill="rgb(238,176,49)" rx="2" ry="2" />
+<text  x="379.68" y="175.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\contract\private\arr-i.rkt:111:4 (1 samples, 0.23%)</title><rect x="354.6" y="53" width="2.8" height="15.0" fill="rgb(242,162,35)" rx="2" ry="2" />
+<text  x="357.63" y="63.5" ></text>
+</g>
+<g >
+<title>loop @ C:\Program Files\Racket\collects\racket\private\qq-and-or.rkt:101:61 (1 samples, 0.23%)</title><rect x="1176.2" y="213" width="2.8" height="15.0" fill="rgb(227,32,12)" rx="2" ry="2" />
+<text  x="1179.21" y="223.5" ></text>
+</g>
+<g >
+<title>get-prefs @ C:\Program Files\Racket\collects\racket\file.rkt:467:0 (1 samples, 0.23%)</title><rect x="387.7" y="181" width="2.8" height="15.0" fill="rgb(252,27,48)" rx="2" ry="2" />
+<text  x="390.71" y="191.5" ></text>
+</g>
+<g >
+<title>path-&gt;pkg+subpath @ C:\Program Files\Racket\collects\pkg\path.rkt:188:0 (1 samples, 0.23%)</title><rect x="225.0" y="165" width="2.8" height="15.0" fill="rgb(213,133,34)" rx="2" ry="2" />
+<text  x="228.05" y="175.5" ></text>
+</g>
+<g >
+<title>C:\Program Files\Racket\collects\racket\file.rkt:437:8 (3 samples, 0.70%)</title><rect x="346.4" y="133" width="8.2" height="15.0" fill="rgb(206,214,2)" rx="2" ry="2" />
+<text  x="349.36" y="143.5" ></text>
+</g>
+<g >
+<title>annotate-contracts @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\private\syncheck\contract-traversal.rkt:11:0 (1 samples, 0.23%)</title><rect x="398.7" y="213" width="2.8" height="15.0" fill="rgb(240,192,42)" rx="2" ry="2" />
+<text  x="401.74" y="223.5" ></text>
+</g>
+<g >
+<title>annotate-variables @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\private\syncheck\traversals.rkt:678:0 (273 samples, 63.79%)</title><rect x="401.5" y="213" width="752.7" height="15.0" fill="rgb(237,24,50)" rx="2" ry="2" />
+<text  x="404.50" y="223.5" >annotate-variables @ C:\Program Files\Racket\share\pkgs\drracket-tool-lib\drracket\private\syncheck\trav..</text>
+</g>
+</g>
+</svg>
