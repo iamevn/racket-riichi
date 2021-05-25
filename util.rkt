@@ -1,4 +1,11 @@
-#lang racket
+#lang typed/racket
+(require/typed racket/contract
+               [#:opaque FlatContract flat-contract?]
+               [flat-named-contract (-> Any FlatContract FlatContract)])
+(require/typed racket/function
+               [curryr (All (R B A)
+                            (-> (-> A B R) B (-> A R)))])
+
 (provide list-length/c
          string-length/c
          remove-all
@@ -9,22 +16,24 @@
          remove-each
          remove-parens)
 
-(define (list-length/c n #:cmp [cmp equal?])
+(define (list-length/c [n : Natural] #:cmp [cmp : (-> Natural Natural Boolean) equal?])
   (flat-named-contract
    (string->symbol (~a "list-length-" (object-name cmp) "-" (number->string n)))
-   (λ (l)
-     (cmp (length l) n))))
+   (assert (λ ([l : (Listof Any)])
+             (cmp (length l) n))
+           flat-contract?)))
 
-(define (string-length/c n)
+(define (string-length/c [n : Natural])
   (flat-named-contract
    (string->symbol (string-append "string-length-" (number->string n)))
-   (λ (s)
-     (equal? (string-length s) n))))
+   (assert (λ ([s : String])
+             (equal? (string-length s) n))
+           flat-contract?)))
 
 ; for each entry in to-remove, remove one copy from lst
 ; error if not enough tiles in lst to remove
-(define/contract (remove-all to-remove lst)
-  (-> list? list? list?)
+(: remove-all (-> (Listof Any) (Listof Any) (Listof Any)))
+(define (remove-all to-remove lst)
   (cond
     [(empty? to-remove) lst]
     [(member (first to-remove) lst)
@@ -32,28 +41,29 @@
                  (remove (first to-remove) lst))]
     [else (raise-argument-error 'remove-all "leftover entries in to-remove" to-remove)]))
 
-(define/contract (count-distinct lst)
-  (-> list? number?)
+(: count-distinct (-> (Listof Any) Natural))
+(define (count-distinct lst)
   (set-count (list->set lst)))
 
-(define/contract (all-equal? lst)
-  (-> list? boolean?)
+(: all-equal? (-> (Listof Any) Boolean))
+(define (all-equal? lst)
   (equal? 1 (count-distinct lst)))
 
-(define/contract (member? v lst)
-  (-> any/c list? boolean?)
+(: member? (-> Any (Listof Any) Boolean))
+(define (member? v lst)
   (not (false? (member v lst))))
 
+(: one-member? (-> (Listof Any) (Listof Any) Boolean))
 (define (one-member? vs lst)
   (ormap (curryr member? lst) vs))
 
-(define/contract (remove-each to-remove s)
-  (-> (listof string?) string? string?)
+(: remove-each (-> (Listof String) String String))
+(define (remove-each to-remove s)
   (if (empty? to-remove)
       s
       (remove-each (cdr to-remove)
                    (string-replace s (car to-remove) ""))))
 
-(define/contract (remove-parens s)
-  (-> string? string?)
+(: remove-parens (-> String String))
+(define (remove-parens s)
   (remove-each '("(" ")") s))
