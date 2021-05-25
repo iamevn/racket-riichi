@@ -1,11 +1,12 @@
 #lang typed/racket
 (require/typed racket/contract
-               [#:opaque FlatContract flat-contract?]
-               [flat-named-contract (-> Any FlatContract FlatContract)])
+               [flat-named-contract (All (A) (-> Any (FlatContract A) (FlatContract A)))])
 (require/typed racket/function
                [curryr (All (R B A)
                             (-> (-> A B R) B (-> A R)))])
 
+(define-type (FlatContract A) (-> A Boolean))
+(define-new-subtype Foo (foo String))
 (provide list-length/c
          string-length/c
          remove-all
@@ -19,16 +20,14 @@
 (define (list-length/c [n : Natural] #:cmp [cmp : (-> Natural Natural Boolean) equal?])
   (flat-named-contract
    (string->symbol (~a "list-length-" (object-name cmp) "-" (number->string n)))
-   (assert (λ ([l : (Listof Any)])
-             (cmp (length l) n))
-           flat-contract?)))
+   (λ ([l : (Listof Any)])
+             (cmp (length l) n))))
 
-(define (string-length/c [n : Natural])
+(define (string-length/c [n : Natural]) : (FlatContract String)
   (flat-named-contract
    (string->symbol (string-append "string-length-" (number->string n)))
-   (assert (λ ([s : String])
-             (equal? (string-length s) n))
-           flat-contract?)))
+   (λ ([s : String])
+             (equal? (string-length s) n))))
 
 ; for each entry in to-remove, remove one copy from lst
 ; error if not enough tiles in lst to remove
