@@ -46,31 +46,16 @@
                    (string->list digits))))))])
     (assert expanded strict-handstring?)))
 
+(define (shorthand->tilelist [s : String]) : Tilelist
+    (assert
+     (map list->string
+         (pair-up (string->list (shorthand-expand s))))
+     tilelist?))
+
 (module orig racket
   (require "contracts.rkt")
 
-  (provide shorthand->tilelist
-           tile
-           tile-sort
-           tile<?
-           suit<?
-           tile-sorted?
-           tile-sort-keep-last
-           tile-sorted-keep-last?
-           tile-next
-           tile-prev
-           tile-pair?
-           tile-suit
-           tile-number
-           same-suit?
-           honor?
-           dragon?
-           wind?
-           wind-name
-           terminal?
-           simple?
-           wind
-           dragon)
+  (provide (all-defined-out))
 
   (define/contract (shorthand-expand s)
     (-> handstring? strict-handstring?)
@@ -100,11 +85,6 @@
                            #;[(empty? (cdr lst)) (rec-pair (cdr lst) (cons lst ret))]
                            [else (rec-pair (drop lst 2) (cons (take lst 2) ret))]))])
       (rec-pair lst '())))
-
-  (define/contract (shorthand->tilelist s)
-    (-> handstring? tilelist?)
-    (map list->string
-         (pair-up (string->list (shorthand-expand s)))))
 
 
   (define/contract (tile n suit)
@@ -236,3 +216,6 @@
       [("4z") "north"])))
 
 (require 'orig)
+
+(require/typed 'orig
+               [pair-up (-> (Listof Char) (Listof (List Char Char)))])

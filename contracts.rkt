@@ -98,14 +98,14 @@
                [#:opaque _StrictHandstring strict-handstring?])
 
 (define-type Tilelist (U _Tilelist (Listof Tile) (Listof _Tile)))
-(define-type Suit _Suit)
-(define-type Tile _Tile)
-(define-type Handstring (U _Handstring
-                           _StrictHandstring
-                           StrictHandstring
-                           _Tile
-                           Tile))
-(define-type CallNotation _CallNotation)
-(define-type StrictHandstring (U _StrictHandstring
-                                 _Tile
-                                 Tile))
+(define-type Suit (Refine [c : Char] (: c _Suit)))
+(define-type Tile (Refine [s : String] (: s _Tile)))
+(define-type Handstring (Refine [s : String] (: s (U _Handstring
+                                                     _StrictHandstring
+                                                     StrictHandstring
+                                                     _Tile
+                                                     Tile))))
+(define-type CallNotation (Refine [s : String] (: s _CallNotation)))
+(define-type StrictHandstring (Refine [s : String] (: s (U _StrictHandstring
+                                                           _Tile
+                                                           Tile))))
