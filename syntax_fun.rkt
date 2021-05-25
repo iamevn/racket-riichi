@@ -130,17 +130,19 @@
 (require profile-flame-graph/flame-graph)
 
 (define (graph-snapshots pf #:filename [filename "profile.svg"]
-               #:args [args '()])
+                         #:args [args '()])
   (let ([tmp (make-temporary-file)])
     (with-output-to-file tmp #:exists 'replace
       (thunk (print-stacks (samples->stacks pf))))
     (with-output-to-file filename #:exists 'replace
       (thunk (system (string-join (list* "flamegraph.pl" (path->string tmp) args)))))))
 
+(define (make-profile-graph)
+  (graph-snapshots (profile-snapshots gen-project-deps)))
 #;(define snapshots (profile-snapshots gen-project-deps))
 #;(graph-snapshots snapshots)
 
-(define (deps->dot project-deps)
+(define (deps->dot project-deps #:combine-edges? [combine-edges? #true])
   (define (-.rkt f) (string-trim f ".rkt" #:left? #f #:right? #t))
   (define (replace-backslash f #:replacement [replacement "/"])
     (string-replace f "\\" replacement #:all? #t))
@@ -149,19 +151,30 @@
   
   (let-values ([(nodes edges) (nodes-and-edges project-deps)])
     (write-string "digraph G {") (newline)
-    (write-string "  layout=neato") (newline)
-    (write-string "  center=\"\"") (newline)
+    (write-string "  overlap=\"scale\"") (newline)
+    (write-string "  splines=true") (newline)
+    (write-string "  node[shape=\"box\"]") (newline)
     (newline)
-    #;(for ([node (in-list nodes)])
-      (write-string (~a "  " (clean node) ";")) (newline))
-    (newline)
-    (for ([edge (in-list edges)])
-      (write-string (~a "  " (clean (edge-src edge))
-                        " -> " (clean (edge-dst edge))
-                        " [label=\"" (edge-id edge) "\"];"))
-      (newline))
+    (if combine-edges?
+        (let ([h (for/hashlist ([edge (in-list edges)])
+                   (values (list (edge-src edge) (edge-dst edge))
+                           (edge-id edge)))])
+          (for ([(e l) (in-hash h)])
+            (let ([src (clean (first e))]
+                  [dst (clean (second e))]
+                  [label (string-join l "\\n")])
+              (write-string (~a "  " src
+                                " -> " dst
+                                " [label=\"" label "\"];"))
+              (newline))))
+        (for ([edge (in-list edges)])
+          (write-string (~a "  " (clean (edge-src edge))
+                            " -> " (clean (edge-dst edge))
+                            " [label=\"" (edge-id edge) "\"];"))
+          (newline)))
     (write-string "}")
     (newline)))
 
+(define prdeps (gen-project-deps))
 (with-output-to-file "module_deps.gv" #:exists 'replace
-  (thunk (deps->dot (gen-project-deps))))
+  (thunk (deps->dot prdeps)))
