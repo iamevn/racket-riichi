@@ -47,28 +47,15 @@
     (assert expanded strict-handstring?)))
 
 (define (shorthand->tilelist [s : String]) : Tilelist
-    (assert
-     (map list->string
-         (pair-up (string->list (shorthand-expand s))))
-     tilelist?))
+  (assert
+   (map list->string
+        (pair-up (string->list (shorthand-expand s))))
+   tilelist?))
 
-(module orig racket
+(module untyped racket
   (require "contracts.rkt")
 
   (provide (all-defined-out))
-
-  (define/contract (shorthand-expand s)
-    (-> handstring? strict-handstring?)
-    (let ([expanded
-           (regexp-replace*
-            #rx"([1-9]+)([mspz])"
-            s
-            (λ (s digits suffix)
-              (list->string
-               (flatten
-                (map (λ (e) (cons e (string->list suffix)))
-                     (string->list digits))))))])
-      expanded))
 
   (define/contract (pair-up lst)
     (-> (and/c (listof char?)
@@ -215,7 +202,31 @@
       [("3z") "west"]
       [("4z") "north"])))
 
-(require 'orig)
-
-(require/typed 'orig
-               [pair-up (-> (Listof Char) (Listof (List Char Char)))])
+(require/typed 'untyped
+               [pair-up (-> (Listof Char) (Listof (List Char Char)))]
+               [tile (-> Number Suit Tile)]
+               [tile-suit (-> Tile Suit)]
+               [tile-number (-> Tile Number)]
+               [same-suit? (-> (Listof Tile) Boolean)]
+               [honor? (-> Tile Boolean)]
+               [dragon? (-> Tile Boolean)]
+               [wind? (-> Tile Boolean)]
+               [terminal? (-> Tile Boolean)]
+               [simple?  (-> Tile Boolean)]
+               [tile-sort (-> Tilelist Tilelist)]
+               [tile-sorted? (-> Tilelist Boolean)]
+               [tile-sort-keep-last (-> Tilelist Tilelist)]
+               [tile-sorted-keep-last? (-> Tilelist Boolean)]
+               [tile-next (-> Tile Tile)]
+               [tile-prev (-> Tile Tile)]
+               [tile<? (-> Tile Tile Boolean)]
+               [suit<? (-> Suit Suit Boolean)]
+               [tile-pair? (-> Tilelist Boolean)]
+               [wind-name (-> Tile String)]
+               [wind (-> (U 'e 'east 'ton
+                            's 'south 'nan
+                            'w 'west 'sha
+                            'n 'north 'pei) Tile)]
+               [dragon (-> (U 'w 'white 'haku
+                              'g 'green 'hatsu
+                              'r 'red 'chun) Tile)])
