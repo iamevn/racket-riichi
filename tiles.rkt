@@ -1,10 +1,30 @@
-#lang typed/racket #:with-refinements
+#lang typed/racket
 ; TODO: 0m 0p 0s or 5*m 5*p 5*s as red fives
-(require/typed "contracts.rkt"
-               [#:opaque Handstring handstring?]
-               [#:opaque StrictHandstring strict-handstring?])
+(require "contracts.rkt")
 
-(provide (all-defined-out))
+(provide shorthand->tilelist
+         tile
+         tile-sort
+         tile<?
+         suit<?
+         tile-sorted?
+         tile-sort-keep-last
+         tile-sorted-keep-last?
+         tile-next
+         tile-prev
+         tile-pair?
+         tile-suit
+         tile-number
+         same-suit?
+         honor?
+         dragon?
+         wind?
+         wind-name
+         terminal?
+         simple?
+         wind
+         dragon)
+
 
 (define (regexp-replace*_3 [pattern : Regexp] [input : String]
                            [insert : (-> String String String String)]) : String
@@ -214,3 +234,5 @@
       [("2z") "south"]
       [("3z") "west"]
       [("4z") "north"])))
+
+(require 'orig)
