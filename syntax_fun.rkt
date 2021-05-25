@@ -148,12 +148,25 @@
     (string-replace f "\\" replacement #:all? #t))
   (define (quote-wrap f) (~a #\" f #\"))
   (define clean (compose quote-wrap replace-backslash))
+  (define/contract (classnameify s)
+    (-> string? (and/c string?
+                       (curry regexp-match? #rx"^-?[_a-zA-Z]+[_a-zA-Z0-9-]*$")))
+    (string-replace
+     (string-replace
+      (-.rkt (string-trim s "\""))
+      "/" "_")
+     "-" "_"))
   
   (let-values ([(nodes edges) (nodes-and-edges project-deps)])
     (write-string "digraph G {") (newline)
     (write-string "  overlap=\"scale\"") (newline)
     (write-string "  splines=true") (newline)
     (write-string "  node[shape=\"box\"]") (newline)
+    (newline)
+    (for ([node (in-list nodes)])
+      (let ([name (clean node)])
+        (write-string (~a "  " name " [class=\"" (classnameify name) "\"];"))
+        (newline)))
     (newline)
     (if combine-edges?
         (let ([h (for/hashlist ([edge (in-list edges)])
@@ -165,7 +178,9 @@
                   [label (string-join l "\\n")])
               (write-string (~a "  " src
                                 " -> " dst
-                                " [label=\"" label "\"];"))
+                                " [label=\"" label "\""
+                                ",class=\"" (classnameify (string-trim src "\""))
+                                " " (classnameify (string-trim dst "\"")) "\"];"))
               (newline))))
         (for ([edge (in-list edges)])
           (write-string (~a "  " (clean (edge-src edge))
