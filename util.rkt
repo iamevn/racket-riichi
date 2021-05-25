@@ -1,6 +1,10 @@
 #lang typed/racket
-(require/typed racket/contract
+#;(require/typed racket/contract
                [flat-named-contract (All (A) (-> Any (FlatContract A) (FlatContract A)))])
+;; something really broke so I'm just stubbing flat-named-contract out
+(: flat-named-contract (All (A) (-> Any (FlatContract A) (FlatContract A))))
+(define (flat-named-contract _ f) f)
+
 (require/typed racket/function
                [curryr (All (R B A)
                             (-> (-> A B R) B (-> A R)))])
